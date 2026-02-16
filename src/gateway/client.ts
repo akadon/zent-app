@@ -15,6 +15,7 @@ export class GatewayClient {
   private socket: Socket | null = null;
   private token: string | null = null;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private heartbeatJitterTimeout: ReturnType<typeof setTimeout> | null = null;
   private lastSequence: number | null = null;
   private sessionId: string | null = null;
   private handlers = new Map<string, Set<EventHandler>>();
@@ -177,7 +178,8 @@ export class GatewayClient {
     this.stopHeartbeat();
     // First heartbeat with jitter
     const jitter = Math.random() * interval;
-    setTimeout(() => {
+    this.heartbeatJitterTimeout = setTimeout(() => {
+      this.heartbeatJitterTimeout = null;
       this.sendHeartbeat();
       this.heartbeatInterval = setInterval(() => {
         this.sendHeartbeat();
@@ -186,6 +188,10 @@ export class GatewayClient {
   }
 
   private stopHeartbeat() {
+    if (this.heartbeatJitterTimeout) {
+      clearTimeout(this.heartbeatJitterTimeout);
+      this.heartbeatJitterTimeout = null;
+    }
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;

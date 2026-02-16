@@ -1,6 +1,6 @@
 import type { Message, Channel } from "@yxc/types";
 
-const DB_NAME = "zent-cache";
+const DB_NAME = "zent-offline-cache";
 const DB_VERSION = 1;
 
 export function openDB(): Promise<IDBDatabase> {

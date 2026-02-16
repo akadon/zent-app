@@ -397,7 +397,7 @@ export function MainLayout() {
       {activeModal === "invitePeople" && <InviteModal />}
       {activeModal === "userSettings" && <UserSettings />}
       {activeModal === "guildSettings" && <GuildSettings />}
-      {activeModal === "quickSwitcher" && <QuickSwitcher guilds={guilds} />}
+      {/* QuickSwitcher is rendered in providers.tsx */}
     </div>
   );
 }
@@ -738,89 +738,3 @@ function EmptyState() {
   );
 }
 
-function QuickSwitcher({ guilds }: { guilds: Guild[] }) {
-  const closeModal = useUIStore((s) => s.closeModal);
-  const selectGuild = useGuildStore((s) => s.selectGuild);
-  const [query, setQuery] = useState("");
-
-  const filteredGuilds = guilds.filter(g =>
-    g.name.toLowerCase().includes(query.toLowerCase())
-  );
-
-  return (
-    <div className="modal-overlay" onClick={closeModal}>
-      <div
-        className={cn(
-          "w-full max-w-lg mx-4",
-          "bg-background-floating/95 backdrop-blur-xl",
-          "rounded-2xl border border-surface-border",
-          "shadow-elevated overflow-hidden",
-          "animate-scale-in"
-        )}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Search Input */}
-        <div className="p-4 border-b border-surface-border/50">
-          <div className="relative">
-            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
-            <input
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Where would you like to go?"
-              className={cn(
-                "w-full pl-12 pr-4 py-3 rounded-xl",
-                "bg-background-tertiary/80 text-text-normal",
-                "placeholder:text-text-muted/60",
-                "border border-surface-border/50",
-                "focus:border-brand/50 focus:outline-none"
-              )}
-              autoFocus
-            />
-          </div>
-        </div>
-
-        {/* Results */}
-        <div className="p-2 max-h-80 overflow-y-auto">
-          <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-text-muted mb-1">
-            Servers
-          </div>
-          {filteredGuilds.map(guild => (
-            <button
-              key={guild.id}
-              onClick={() => { selectGuild(guild.id); closeModal(); }}
-              className={cn(
-                "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl",
-                "text-text-normal transition-all duration-150",
-                "hover:bg-brand/10 hover:text-brand-light"
-              )}
-            >
-              <div className="h-8 w-8 rounded-lg bg-background-secondary flex items-center justify-center text-xs font-bold">
-                {guild.icon ? (
-                  <img src={guild.icon} alt="" className="h-full w-full rounded-lg object-cover" />
-                ) : (
-                  guild.name.slice(0, 2).toUpperCase()
-                )}
-              </div>
-              <span className="font-medium">{guild.name}</span>
-            </button>
-          ))}
-
-          {filteredGuilds.length === 0 && (
-            <div className="flex flex-col items-center py-8 text-text-muted">
-              <Search size={24} className="opacity-30 mb-2" />
-              <p className="text-sm">No results found</p>
-            </div>
-          )}
-        </div>
-
-        {/* Footer hint */}
-        <div className="px-4 py-3 bg-background-tertiary/30 border-t border-surface-border/30 text-xs text-text-muted">
-          <span className="opacity-60">Tip: Press</span>
-          <kbd className="mx-1 px-1.5 py-0.5 rounded bg-background-hover font-mono">ESC</kbd>
-          <span className="opacity-60">to close</span>
-        </div>
-      </div>
-    </div>
-  );
-}
