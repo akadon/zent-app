@@ -1,0 +1,621 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Font imports ── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    background-color: #0a0f1a;
+    color: #b8d4e8;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ── Selection color ── */
+  ::selection {
+    background-color: rgba(0, 212, 170, 0.3);
+    color: #e8f4fc;
+  }
+
+  /* ── Focus styles ── */
+  :focus-visible {
+    outline: 2px solid rgba(0, 212, 170, 0.5);
+    outline-offset: 2px;
+  }
+
+  /* ── Custom scrollbar ── */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #2a3f55 0%, #1a2740 100%);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #3a5570 0%, #2a4055 100%);
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* ── Component layer ── */
+@layer components {
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BUTTONS - Unique pill-shaped buttons with glow effects
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold;
+    @apply rounded-full; /* Pill shape - different from Discord's rounded-md */
+    @apply transition-all duration-300 ease-smooth;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-primary;
+    @apply disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none;
+    @apply active:scale-[0.96];
+  }
+
+  .btn-primary {
+    @apply btn;
+    background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
+    @apply text-background-primary font-bold;
+    @apply shadow-glow-sm;
+    @apply hover:shadow-glow hover:brightness-110;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface-light/80 text-text-normal;
+    @apply border border-surface-border;
+    @apply hover:bg-surface-light hover:border-brand/30 hover:text-header-primary;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-text-muted;
+    @apply hover:bg-background-hover/50 hover:text-text-normal;
+  }
+
+  .btn-danger {
+    @apply btn;
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    @apply text-white;
+    @apply hover:brightness-110;
+  }
+
+  .btn-outline {
+    @apply btn bg-transparent text-brand-light;
+    @apply border-2 border-brand/50;
+    @apply hover:bg-brand/10 hover:border-brand;
+  }
+
+  /* Icon button with neon hover */
+  .icon-btn {
+    @apply flex items-center justify-center rounded-xl p-2.5;
+    @apply text-text-muted transition-all duration-300 ease-smooth;
+    @apply hover:bg-brand/10 hover:text-brand-light;
+    @apply active:scale-90;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     CARDS - Unique floating card style with subtle glow borders
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .card {
+    @apply rounded-2xl p-5;
+    background: linear-gradient(145deg, #0e1525 0%, #0a0f1a 100%);
+    @apply border border-surface-border;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .card-interactive {
+    @apply card cursor-pointer;
+    @apply transition-all duration-300 ease-smooth;
+    @apply hover:border-brand/30;
+    @apply hover:-translate-y-1;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .card-interactive:hover {
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      0 0 20px rgba(0, 212, 170, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .card-neon {
+    @apply card;
+    @apply border-brand/20;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.4),
+      0 0 30px rgba(0, 212, 170, 0.08),
+      inset 0 1px 0 rgba(0, 212, 170, 0.1);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     INPUTS - Sleek floating inputs with animated borders
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .input {
+    @apply w-full rounded-xl px-4 py-3.5;
+    @apply bg-background-tertiary/80 text-text-normal;
+    @apply placeholder:text-text-muted/60;
+    @apply border border-surface-border;
+    @apply transition-all duration-300 ease-smooth;
+    @apply focus:border-brand/50 focus:bg-background-tertiary focus:outline-none;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .input:focus {
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.2),
+      0 0 0 3px rgba(0, 212, 170, 0.15);
+  }
+
+  .input-lg {
+    @apply input py-4 text-base;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     GLASS MORPHISM - Distinctive frosted glass effect
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .glass {
+    background: rgba(14, 21, 37, 0.75);
+    backdrop-filter: blur(20px) saturate(180%);
+    @apply border border-white/5;
+  }
+
+  .glass-elevated {
+    background: rgba(18, 28, 46, 0.85);
+    backdrop-filter: blur(24px) saturate(200%);
+    @apply border border-white/8;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-brand {
+    background: rgba(0, 212, 170, 0.08);
+    backdrop-filter: blur(16px) saturate(150%);
+    @apply border border-brand/20;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     GRADIENTS - Unique gradient combinations
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .gradient-brand {
+    background: linear-gradient(135deg, #00f5c4 0%, #00d4aa 50%, #00b894 100%);
+  }
+
+  .gradient-brand-dark {
+    background: linear-gradient(135deg, #00d4aa 0%, #008066 100%);
+  }
+
+  .gradient-aurora {
+    background: linear-gradient(135deg, #00d4aa 0%, #38bdf8 50%, #c084fc 100%);
+  }
+
+  .gradient-sunset {
+    background: linear-gradient(135deg, #f472b6 0%, #fb923c 100%);
+  }
+
+  .gradient-ocean {
+    background: linear-gradient(180deg, #0a0f1a 0%, #0e1525 50%, #121c2e 100%);
+  }
+
+  /* Animated gradient border */
+  .gradient-border {
+    position: relative;
+    background: linear-gradient(#0e1525, #0e1525) padding-box,
+                linear-gradient(135deg, #00d4aa, #38bdf8, #c084fc) border-box;
+    border: 2px solid transparent;
+    border-radius: 16px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     AVATARS - Unique hexagon-inspired avatars with ring effects
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .avatar {
+    @apply relative flex shrink-0 items-center justify-center;
+    @apply rounded-xl; /* Slightly rounded square instead of circle */
+    @apply text-white font-semibold;
+    @apply transition-all duration-300 ease-smooth;
+    background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
+  }
+
+  .avatar:hover {
+    @apply scale-105;
+    box-shadow: 0 0 20px rgba(0, 212, 170, 0.3);
+  }
+
+  .avatar-sm { @apply h-8 w-8 text-xs rounded-lg; }
+  .avatar-md { @apply h-10 w-10 text-sm rounded-xl; }
+  .avatar-lg { @apply h-12 w-12 text-base rounded-xl; }
+  .avatar-xl { @apply h-16 w-16 text-lg rounded-2xl; }
+
+  .avatar-ring {
+    @apply ring-2 ring-brand/50 ring-offset-2 ring-offset-background-primary;
+  }
+
+  /* Status indicator - pill shaped instead of circle */
+  .status-indicator {
+    @apply absolute rounded-full;
+    @apply border-2 border-background-secondary;
+    @apply -bottom-0.5 -right-0.5;
+  }
+
+  .status-indicator-sm { @apply h-3 w-3; }
+  .status-indicator-md { @apply h-3.5 w-3.5; }
+  .status-indicator-lg { @apply h-4 w-4; }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     GUILD ICONS - Unique shape with animated selection
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .guild-icon {
+    @apply flex h-12 w-12 items-center justify-center;
+    @apply rounded-2xl;
+    background: linear-gradient(145deg, #162035 0%, #0e1525 100%);
+    @apply text-text-muted;
+    @apply transition-all duration-400 ease-smooth;
+    @apply border border-transparent;
+  }
+
+  .guild-icon:hover {
+    @apply rounded-xl;
+    background: linear-gradient(145deg, #1a2740 0%, #162035 100%);
+    @apply border-brand/30 text-brand-light;
+    box-shadow: 0 0 20px rgba(0, 212, 170, 0.15);
+  }
+
+  .guild-icon-selected {
+    @apply rounded-xl;
+    background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
+    @apply text-background-primary font-bold;
+    box-shadow: 0 0 25px rgba(0, 212, 170, 0.3);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     CHANNEL ITEMS - Sleek with left accent bar
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .channel-item {
+    @apply relative flex items-center gap-3 rounded-xl px-3 py-2;
+    @apply text-channel-default;
+    @apply transition-all duration-200 ease-smooth;
+  }
+
+  .channel-item:hover {
+    @apply bg-background-hover/50 text-channel-hover;
+  }
+
+  .channel-item-selected {
+    @apply bg-brand/10 text-brand-light;
+  }
+
+  .channel-item-selected::before {
+    content: "";
+    @apply absolute left-0 top-1/2 -translate-y-1/2;
+    @apply h-6 w-1 rounded-r-full;
+    background: linear-gradient(180deg, #00f5c4 0%, #00d4aa 100%);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SIDEBAR STYLING
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .sidebar-item {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5;
+    @apply text-text-muted transition-all duration-200 ease-smooth;
+    @apply hover:bg-background-hover/50 hover:text-text-normal;
+  }
+
+  .sidebar-item-active {
+    @apply sidebar-item bg-brand/10 text-brand-light;
+    @apply hover:bg-brand/15 hover:text-brand-light;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     MESSAGE STYLING - Unique bubble style
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .message-hover {
+    @apply transition-all duration-200;
+    @apply hover:bg-background-hover/30;
+  }
+
+  .message-bubble {
+    @apply rounded-2xl rounded-tl-md px-4 py-2.5;
+    @apply bg-surface-light/50;
+    @apply border border-surface-border/50;
+  }
+
+  .message-bubble-own {
+    @apply rounded-2xl rounded-tr-md px-4 py-2.5;
+    background: linear-gradient(135deg, rgba(0, 212, 170, 0.15) 0%, rgba(0, 184, 148, 0.1) 100%);
+    @apply border border-brand/20;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     TOOLTIPS & DROPDOWNS
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .tooltip {
+    @apply absolute z-50 px-3 py-2 rounded-xl;
+    background: rgba(18, 28, 46, 0.95);
+    backdrop-filter: blur(12px);
+    @apply text-text-normal text-sm font-medium;
+    @apply shadow-elevated border border-surface-border;
+    @apply animate-fade-in;
+  }
+
+  .dropdown {
+    @apply absolute z-50 min-w-[200px] rounded-2xl;
+    background: rgba(14, 21, 37, 0.95);
+    backdrop-filter: blur(20px);
+    @apply border border-surface-border;
+    @apply shadow-elevated py-2;
+    @apply animate-scale-in;
+  }
+
+  .dropdown-item {
+    @apply flex items-center gap-3 px-4 py-2.5 mx-2 rounded-xl;
+    @apply text-sm text-text-normal;
+    @apply transition-all duration-200;
+    @apply hover:bg-brand/10 hover:text-brand-light;
+    @apply cursor-pointer;
+  }
+
+  .dropdown-item-danger {
+    @apply dropdown-item text-red-light;
+    @apply hover:bg-red/10 hover:text-red-light;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     MODALS
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+    background: rgba(6, 10, 18, 0.85);
+    backdrop-filter: blur(8px);
+    @apply animate-fade-in;
+  }
+
+  .modal-content {
+    @apply relative rounded-3xl p-8;
+    background: linear-gradient(145deg, #121c2e 0%, #0e1525 100%);
+    @apply border border-surface-border;
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.6),
+      0 0 40px rgba(0, 212, 170, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    @apply animate-scale-in;
+    @apply max-h-[85vh] overflow-y-auto;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BADGES
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .badge {
+    @apply inline-flex items-center justify-center px-3 py-1 rounded-full;
+    @apply text-xs font-bold uppercase tracking-wide;
+  }
+
+  .badge-brand {
+    @apply badge;
+    background: linear-gradient(135deg, rgba(0, 212, 170, 0.2) 0%, rgba(0, 184, 148, 0.15) 100%);
+    @apply text-brand-light border border-brand/30;
+  }
+
+  .badge-red {
+    @apply badge bg-red/15 text-red-light border border-red/30;
+  }
+
+  .badge-green {
+    @apply badge bg-green/15 text-green-light border border-green/30;
+  }
+
+  .badge-purple {
+    @apply badge bg-accent-purple/15 text-accent-purple border border-accent-purple/30;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SKELETON LOADER
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-xl;
+    background: linear-gradient(90deg, #0e1525 0%, #162035 50%, #0e1525 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite ease-in-out;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     DIVIDERS
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .divider {
+    @apply h-px w-full;
+    background: linear-gradient(90deg, transparent 0%, rgba(99, 179, 237, 0.15) 50%, transparent 100%);
+  }
+
+  .divider-vertical {
+    @apply w-px h-full;
+    background: linear-gradient(180deg, transparent 0%, rgba(99, 179, 237, 0.15) 50%, transparent 100%);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     ANIMATIONS
+  ═══════════════════════════════════════════════════════════════════════════ */
+
+  .stagger-item {
+    @apply animate-fade-in-up;
+    animation-fill-mode: backwards;
+  }
+
+  .stagger-item:nth-child(1) { animation-delay: 0ms; }
+  .stagger-item:nth-child(2) { animation-delay: 40ms; }
+  .stagger-item:nth-child(3) { animation-delay: 80ms; }
+  .stagger-item:nth-child(4) { animation-delay: 120ms; }
+  .stagger-item:nth-child(5) { animation-delay: 160ms; }
+  .stagger-item:nth-child(6) { animation-delay: 200ms; }
+  .stagger-item:nth-child(7) { animation-delay: 240ms; }
+  .stagger-item:nth-child(8) { animation-delay: 280ms; }
+
+  .hover-reveal {
+    @apply opacity-0 transition-all duration-200;
+    @apply translate-x-2;
+  }
+
+  .group:hover .hover-reveal {
+    @apply opacity-100 translate-x-0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOADING & INDICATORS
+═══════════════════════════════════════════════════════════════════════════ */
+
+.spinner {
+  @apply h-5 w-5 rounded-full;
+  border: 2px solid rgba(0, 212, 170, 0.2);
+  border-top-color: #00d4aa;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner-brand {
+  @apply spinner;
+}
+
+.notification-dot {
+  @apply absolute -top-1 -right-1 h-3 w-3;
+  @apply rounded-full;
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.5);
+  @apply animate-pulse-soft;
+}
+
+.typing-dot {
+  @apply h-2 w-2 rounded-full bg-brand;
+  animation: typingBounce 1.4s infinite ease-in-out both;
+}
+
+.typing-dot:nth-child(1) { animation-delay: 0ms; }
+.typing-dot:nth-child(2) { animation-delay: 160ms; }
+.typing-dot:nth-child(3) { animation-delay: 320ms; }
+
+@keyframes typingBounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CODE BLOCKS
+═══════════════════════════════════════════════════════════════════════════ */
+
+pre, code {
+  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+}
+
+pre {
+  @apply rounded-2xl p-5;
+  background: linear-gradient(145deg, #060a12 0%, #0a0f1a 100%);
+  @apply border border-surface-border;
+  @apply overflow-x-auto;
+}
+
+code:not(pre code) {
+  @apply rounded-lg px-2 py-1;
+  background: rgba(0, 212, 170, 0.1);
+  @apply text-brand-light text-sm;
+  @apply border border-brand/20;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* High contrast mode */
+body.high-contrast .bg-background-primary { background-color: #000000 !important; }
+body.high-contrast .bg-background-secondary { background-color: #050505 !important; }
+body.high-contrast .text-text-normal { color: #ffffff !important; }
+body.high-contrast .text-text-muted { color: #aaaaaa !important; }
+body.high-contrast .border-surface-border { border-color: #444444 !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBAR & MISC
+═══════════════════════════════════════════════════════════════════════════ */
+
+html {
+  scroll-behavior: smooth;
+}
+
+::placeholder {
+  @apply text-text-muted/60;
+}
+
+input::selection,
+textarea::selection {
+  background-color: rgba(0, 212, 170, 0.3);
+}
+
+/* Neon glow effect on focus */
+input:focus,
+textarea:focus,
+select:focus {
+  @apply outline-none;
+  box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.2), 0 0 15px rgba(0, 212, 170, 0.1);
+}
