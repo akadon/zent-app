@@ -19,7 +19,7 @@ class ConnectionManagerImpl {
 
   constructor() {
     // Load saved connections from localStorage
-    if (typeof window \!== 'undefined') {
+    if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
@@ -68,7 +68,7 @@ class ConnectionManagerImpl {
   }
 
   private save() {
-    if (typeof window \!== 'undefined') {
+    if (typeof window !== 'undefined') {
       const data = Array.from(this.connections.values()).map(({ status, ...rest }) => rest);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
