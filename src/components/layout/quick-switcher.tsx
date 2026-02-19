@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useGuildStore } from "@/stores/guild";
+import { useAuthStore } from "@/stores/auth";
+import { api } from "@/lib/api";
 import { Hash, Volume2, Search, MessageSquare, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChannelType } from "@yxc/types";
@@ -9,6 +12,15 @@ import { ChannelType } from "@yxc/types";
 interface QuickSwitcherProps {
   open: boolean;
   onClose: () => void;
+}
+
+interface DMChannel {
+  id: string;
+  recipients: Array<{
+    id: string;
+    username: string;
+    displayName?: string | null;
+  }>;
 }
 
 interface SwitcherItem {
@@ -25,6 +37,13 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const { guilds, channels, selectGuild, selectChannel } = useGuildStore();
+  const currentUser = useAuthStore((s) => s.user);
+
+  const { data: dmChannels = [] } = useQuery({
+    queryKey: ["dmChannels"],
+    queryFn: () => api.get<DMChannel[]>("/users/@me/channels"),
+    enabled: open,
+  });
 
   // Build searchable items
   const items = useMemo(() => {
@@ -51,8 +70,18 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
       }
     }
 
+    for (const dm of dmChannels) {
+      const recipient = dm.recipients.find((r) => r.id !== currentUser?.id) ?? dm.recipients[0];
+      if (!recipient) continue;
+      result.push({
+        id: dm.id,
+        name: recipient.displayName ?? recipient.username,
+        type: "dm",
+      });
+    }
+
     return result;
-  }, [guilds, channels]);
+  }, [guilds, channels, dmChannels, currentUser]);
 
   const filtered = useMemo(() => {
     if (!query) return items.slice(0, 10);
@@ -83,6 +112,9 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
     } else if (item.type === "channel" && item.guildId) {
       selectGuild(item.guildId);
       selectChannel(item.id);
+    } else if (item.type === "dm") {
+      // Navigate to home view — DM selection is handled by main layout
+      selectGuild(null);
     }
     onClose();
   };

@@ -8,9 +8,10 @@ import { Fingerprint, Plus, Trash2, Shield, AlertTriangle } from "lucide-react";
 
 interface Passkey {
   id: string;
-  name: string;
+  credentialId: string;
+  deviceType: string;
+  backedUp: boolean;
   createdAt: string;
-  lastUsedAt: string | null;
 }
 
 function isBrowserSupported(): boolean {
@@ -79,7 +80,6 @@ export function PasskeySettings() {
       return api.post("/auth/passkeys/register/complete", {
         credentialId,
         publicKey: publicKeyBase64,
-        name: `Passkey ${new Date().toLocaleDateString()}`,
       });
     },
     onSuccess: () => {
@@ -158,12 +158,14 @@ export function PasskeySettings() {
               <div className="flex items-center gap-3">
                 <Fingerprint className="h-5 w-5 text-purple-400" />
                 <div>
-                  <p className="text-sm font-medium text-zinc-200">{passkey.name}</p>
+                  <p className="text-sm font-medium text-zinc-200">
+                    {passkey.deviceType ?? "Passkey"}
+                    {passkey.backedUp && (
+                      <span className="ml-2 text-xs text-zinc-500">(synced)</span>
+                    )}
+                  </p>
                   <p className="text-xs text-zinc-500">
                     Added {new Date(passkey.createdAt).toLocaleDateString()}
-                    {passkey.lastUsedAt && (
-                      <> &middot; Last used {new Date(passkey.lastUsedAt).toLocaleDateString()}</>
-                    )}
                   </p>
                 </div>
               </div>

@@ -3,34 +3,17 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth";
+import type { GuildEvent } from "@yxc/types";
 import {
   Calendar,
   Clock,
   MapPin,
   Users,
   Plus,
-  Repeat,
   Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface GuildEvent {
-  id: string;
-  guildId: string;
-  channelId?: string;
-  title: string;
-  description: string;
-  startTime: string;
-  endTime?: string;
-  location?: string;
-  creatorId: string;
-  interested: string[];
-  recurring?: {
-    frequency: "daily" | "weekly" | "monthly";
-    interval: number;
-    until?: string;
-  };
-}
 
 interface EventListProps {
   guildId: string;
@@ -38,6 +21,7 @@ interface EventListProps {
 
 export function EventList({ guildId }: EventListProps) {
   const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -45,9 +29,6 @@ export function EventList({ guildId }: EventListProps) {
     startTime: "",
     endTime: "",
     location: "",
-    isRecurring: false,
-    frequency: "weekly" as "daily" | "weekly" | "monthly",
-    interval: 1,
   });
 
   const { data: events = [], isLoading } = useQuery<GuildEvent[]>({
@@ -67,9 +48,6 @@ export function EventList({ guildId }: EventListProps) {
         startTime: "",
         endTime: "",
         location: "",
-        isRecurring: false,
-        frequency: "weekly",
-        interval: 1,
       });
     },
   });
@@ -93,12 +71,6 @@ export function EventList({ guildId }: EventListProps) {
     }
     if (formData.location) {
       body.location = formData.location;
-    }
-    if (formData.isRecurring) {
-      body.recurring = {
-        frequency: formData.frequency,
-        interval: formData.interval,
-      };
     }
     createMutation.mutate(body);
   }
@@ -193,57 +165,6 @@ export function EventList({ guildId }: EventListProps) {
             }
             className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm text-zinc-100 border border-zinc-700 focus:border-indigo-500 focus:outline-none"
           />
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() =>
-                setFormData({ ...formData, isRecurring: !formData.isRecurring })
-              }
-              className={cn(
-                "flex items-center gap-1 rounded-md px-3 py-1.5 text-sm border transition-colors",
-                formData.isRecurring
-                  ? "border-indigo-500 bg-indigo-500/10 text-indigo-400"
-                  : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-600"
-              )}
-            >
-              <Repeat className="h-3.5 w-3.5" />
-              Recurring
-            </button>
-            {formData.isRecurring && (
-              <div className="flex items-center gap-2">
-                <select
-                  value={formData.frequency}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      frequency: e.target.value as
-                        | "daily"
-                        | "weekly"
-                        | "monthly",
-                    })
-                  }
-                  className="rounded-md bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 border border-zinc-700 focus:outline-none"
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-                <span className="text-xs text-zinc-400">every</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={365}
-                  value={formData.interval}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      interval: parseInt(e.target.value) || 1,
-                    })
-                  }
-                  className="w-16 rounded-md bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 border border-zinc-700 focus:outline-none"
-                />
-              </div>
-            )}
-          </div>
           <div className="flex justify-end gap-2">
             <button
               onClick={() => setShowCreateForm(false)}
@@ -310,12 +231,6 @@ export function EventList({ guildId }: EventListProps) {
                         {event.location}
                       </span>
                     )}
-                    {event.recurring && (
-                      <span className="flex items-center gap-1">
-                        <Repeat className="h-3.5 w-3.5" />
-                        {event.recurring.frequency}
-                      </span>
-                    )}
                     <span className="flex items-center gap-1">
                       <Users className="h-3.5 w-3.5" />
                       {event.interested.length} interested
@@ -327,7 +242,7 @@ export function EventList({ guildId }: EventListProps) {
                   disabled={interestMutation.isPending}
                   className={cn(
                     "flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ml-3 shrink-0",
-                    event.interested.includes("")
+                    event.interested.includes(user?.id ?? "")
                       ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/30"
                       : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
                   )}

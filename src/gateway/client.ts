@@ -78,10 +78,10 @@ export class GatewayClient {
   }
 
   /** Update presence status */
-  updatePresence(status: "online" | "idle" | "dnd" | "invisible", customStatus?: string) {
+  updatePresence(status: "online" | "idle" | "dnd" | "invisible", customStatus?: { text?: string; emoji?: string } | null) {
     this.send({
       op: GatewayOp.PRESENCE_UPDATE,
-      d: { status, customStatus },
+      d: { status, customStatus: customStatus ?? null },
     });
   }
 

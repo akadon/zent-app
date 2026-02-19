@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
 import { useGuildStore } from "@/stores/guild";
 import { usePresenceStore } from "@/stores/presence";
 import { gateway } from "@/gateway/client";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { CreateGuildModal } from "@/components/guild/create-guild-modal";
 import { CreateChannelModal } from "@/components/channel/create-channel-modal";
 import { InviteModal } from "@/components/guild/invite-modal";
 import { UserSettings } from "@/components/settings/user-settings";
 import { GuildSettings } from "@/components/settings/guild-settings";
+import { toast } from "sonner";
 import { FriendsPage } from "@/components/friends/friends-page";
 import { MessageArea } from "@/components/message/message-area";
 import { cn } from "@/lib/utils";
@@ -354,19 +356,20 @@ export function MainLayout() {
           )}
           style={{ animationDelay: "100ms" }}
           >
+            <ErrorBoundary>
             {isHome ? (
               showFriends ? (
-                <FriendsPage />
+                <FriendsPage onOpenDM={(id) => { setDmChannelId(id); setShowFriends(false); selectGuild(null); }} />
               ) : dmChannelId ? (
                 <MessageArea channelId={dmChannelId} guildId={null} />
               ) : (
-                <FriendsPage />
-              )
+                <FriendsPage onOpenDM={(id) => { setDmChannelId(id); setShowFriends(false); selectGuild(null); }} />
             ) : selectedChannelId ? (
               <MessageArea channelId={selectedChannelId} guildId={selectedGuildId} />
             ) : (
               <EmptyState />
             )}
+            </ErrorBoundary>
           </div>
         </main>
 
@@ -394,9 +397,13 @@ export function MainLayout() {
       {/* Modals */}
       {activeModal === "createGuild" && <CreateGuildModal />}
       {activeModal === "createChannel" && <CreateChannelModal />}
+      {activeModal === "createThread" && <CreateThreadModal />}
+      {activeModal === "channelSettings" && <ChannelSettingsModal />}
       {activeModal === "invitePeople" && <InviteModal />}
+      {activeModal === "leaveGuild" && <LeaveGuildModal />}
       {activeModal === "userSettings" && <UserSettings />}
       {activeModal === "guildSettings" && <GuildSettings />}
+      {activeModal === "discoverServers" && <DiscoverServersModal />}
       {/* QuickSwitcher is rendered in providers.tsx */}
     </div>
   );
@@ -521,6 +528,18 @@ function ChannelBreadcrumb({ guildId, channelId }: { guildId: string; channelId:
   );
 }
 
+interface DMChannel {
+  id: string;
+  type: number;
+  recipients: Array<{
+    id: string;
+    username: string;
+    displayName?: string | null;
+    avatar?: string | null;
+  }>;
+  lastMessageId: string | null;
+}
+
 function HomeSidebar({
   onSelectFriends,
   onSelectDM,
@@ -532,6 +551,39 @@ function HomeSidebar({
   selectedDmId: string | null;
   showingFriends: boolean;
 }) {
+  const [dmSearch, setDmSearch] = useState("");
+  const [showNewDm, setShowNewDm] = useState(false);
+  const [newDmRecipient, setNewDmRecipient] = useState("");
+  const queryClient = useQueryClient();
+
+  const { data: dmChannels = [] } = useQuery({
+    queryKey: ["dmChannels"],
+    queryFn: () => api.get<DMChannel[]>("/users/@me/channels"),
+  });
+
+  const getPresence = usePresenceStore((s) => s.getPresence);
+
+  const createDm = useMutation({
+    mutationFn: (recipientId: string) =>
+      api.post<DMChannel>("/users/@me/channels", { recipientId }),
+    onSuccess: (channel) => {
+      queryClient.invalidateQueries({ queryKey: ["dmChannels"] });
+      onSelectDM(channel.id);
+      setShowNewDm(false);
+      setNewDmRecipient("");
+    },
+    onError: (err: any) => toast.error(err.message ?? "Failed to create DM"),
+  });
+
+  const filteredDms = dmSearch
+    ? dmChannels.filter((dm) => {
+        const r = dm.recipients?.[0];
+        if (!r) return false;
+        const name = (r.displayName ?? r.username).toLowerCase();
+        return name.includes(dmSearch.toLowerCase());
+      })
+    : dmChannels;
+
   return (
     <div className="flex flex-col h-full p-3">
       <button
@@ -548,19 +600,119 @@ function HomeSidebar({
         <span className="font-medium">Friends</span>
       </button>
 
+      {/* DM search input */}
+      <div className="relative px-1 mb-2">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+        <input
+          type="text"
+          value={dmSearch}
+          onChange={(e) => setDmSearch(e.target.value)}
+          placeholder="Find a conversation"
+          className={cn(
+            "w-full rounded-lg bg-background-tertiary/80 pl-8 pr-2 py-1.5",
+            "text-xs text-text-normal placeholder:text-text-muted/50",
+            "outline-none focus:ring-1 focus:ring-brand/50 transition-all"
+          )}
+        />
+      </div>
+
       <div className="flex items-center justify-between px-2 py-2 text-xs font-bold uppercase tracking-wider text-text-muted">
         <span>Direct Messages</span>
-        <button className="rounded p-0.5 hover:bg-background-hover hover:text-text-normal">
+        <button
+          onClick={() => setShowNewDm(!showNewDm)}
+          className="rounded p-0.5 hover:bg-background-hover hover:text-text-normal"
+          title="New Direct Message"
+        >
           <Plus size={14} />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-1">
-        {/* DM list would go here */}
-        <div className="flex flex-col items-center justify-center py-8 text-text-muted">
-          <MessageSquare size={24} className="opacity-30 mb-2" />
-          <p className="text-xs">No recent DMs</p>
+      {/* New DM input */}
+      {showNewDm && (
+        <div className="px-1 mb-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newDmRecipient.trim()) createDm.mutate(newDmRecipient.trim());
+            }}
+            className="flex gap-1"
+          >
+            <input
+              type="text"
+              value={newDmRecipient}
+              onChange={(e) => setNewDmRecipient(e.target.value)}
+              placeholder="Enter user ID"
+              className={cn(
+                "flex-1 rounded-lg bg-background-tertiary/80 px-2.5 py-1.5",
+                "text-xs text-text-normal placeholder:text-text-muted/50",
+                "outline-none focus:ring-1 focus:ring-brand/50 transition-all"
+              )}
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={!newDmRecipient.trim() || createDm.isPending}
+              className={cn(
+                "px-2.5 py-1.5 rounded-lg text-xs font-medium",
+                "bg-brand text-white hover:bg-brand-hover",
+                "disabled:opacity-50 transition-colors"
+              )}
+            >
+              {createDm.isPending ? "..." : "Go"}
+            </button>
+          </form>
         </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto space-y-0.5">
+        {filteredDms.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-text-muted">
+            <MessageSquare size={24} className="opacity-30 mb-2" />
+            <p className="text-xs">{dmSearch ? "No matches" : "No recent DMs"}</p>
+          </div>
+        ) : (
+          filteredDms.map((dm) => {
+            const recipient = dm.recipients?.[0];
+            if (!recipient) return null;
+            const presence = getPresence(recipient.id);
+            const isSelected = !showingFriends && dm.id === selectedDmId;
+
+            return (
+              <button
+                key={dm.id}
+                onClick={() => onSelectDM(dm.id)}
+                className={cn(
+                  "flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg",
+                  "transition-all duration-200",
+                  isSelected
+                    ? "bg-brand/12 text-brand-light"
+                    : "text-text-muted hover:bg-background-hover/50 hover:text-text-normal"
+                )}
+              >
+                <div className="relative flex-shrink-0">
+                  <div className={cn(
+                    "avatar avatar-sm",
+                    "bg-gradient-to-br from-brand to-brand-dark"
+                  )}>
+                    {(recipient.displayName ?? recipient.username)?.[0]?.toUpperCase()}
+                  </div>
+                  <div
+                    className={cn(
+                      "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background-secondary",
+                      presence.status === "online" ? "bg-status-online" :
+                      presence.status === "idle" ? "bg-status-idle" :
+                      presence.status === "dnd" ? "bg-status-dnd" :
+                      "bg-status-offline"
+                    )}
+                  />
+                </div>
+                <span className="text-sm truncate">
+                  {recipient.displayName ?? recipient.username}
+                </span>
+              </button>
+            );
+          })
+        )}
       </div>
     </div>
   );
@@ -716,6 +868,251 @@ function MemberPanel({ guildId }: { guildId: string }) {
             </span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function CreateThreadModal() {
+  const { modalData, closeModal } = useUIStore();
+  const channelId = modalData.channelId as string | undefined;
+  const [name, setName] = useState("");
+  const queryClient = useQueryClient();
+
+  const createThread = useMutation({
+    mutationFn: () => api.post(`/channels/${channelId}/threads`, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+      toast.success("Thread created");
+      closeModal();
+    },
+    onError: (err: any) => toast.error(err.message ?? "Failed to create thread"),
+  });
+
+  if (!channelId) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={closeModal}>
+      <div className="w-[440px] rounded-lg bg-background-secondary p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-4 text-lg font-bold text-header-primary">Create Thread</h2>
+        <div className="mb-4">
+          <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">Thread Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="New thread"
+            maxLength={100}
+            className="w-full rounded-[3px] bg-background-tertiary px-3 py-2.5 text-text-normal outline-none focus:ring-2 focus:ring-brand"
+          />
+        </div>
+        <div className="flex justify-end gap-3">
+          <button onClick={closeModal} className="px-4 py-2 text-sm text-text-muted hover:text-text-normal">Cancel</button>
+          <button
+            onClick={() => createThread.mutate()}
+            disabled={!name.trim() || createThread.isPending}
+            className="rounded-[3px] bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-50"
+          >
+            {createThread.isPending ? "Creating..." : "Create Thread"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChannelSettingsModal() {
+  const { modalData, closeModal } = useUIStore();
+  const channelId = modalData.channelId as string | undefined;
+  const guildId = modalData.guildId as string | undefined;
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [topic, setTopic] = useState("");
+
+  const { data: channel } = useQuery({
+    queryKey: ["channel", channelId],
+    queryFn: () => api.get<Channel>(`/channels/${channelId}`),
+    enabled: !!channelId,
+  });
+
+  useEffect(() => {
+    if (channel) {
+      setName(channel.name ?? "");
+      setTopic((channel as any).topic ?? "");
+    }
+  }, [channel]);
+
+  const updateChannel = useMutation({
+    mutationFn: () => api.patch(`/channels/${channelId}`, { name: name || undefined, topic: topic || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+      toast.success("Channel updated");
+      closeModal();
+    },
+    onError: (err: any) => toast.error(err.message ?? "Failed to update channel"),
+  });
+
+  const deleteChannel = useMutation({
+    mutationFn: () => api.delete(`/channels/${channelId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+      toast.success("Channel deleted");
+      closeModal();
+    },
+    onError: (err: any) => toast.error(err.message ?? "Failed to delete channel"),
+  });
+
+  if (!channelId) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={closeModal}>
+      <div className="w-[440px] rounded-lg bg-background-secondary p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-4 text-lg font-bold text-header-primary">Channel Settings</h2>
+        <div className="mb-4 space-y-4">
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">Channel Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-[3px] bg-background-tertiary px-3 py-2.5 text-text-normal outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">Topic</label>
+            <textarea
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              rows={3}
+              maxLength={1024}
+              className="w-full resize-none rounded-[3px] bg-background-tertiary px-3 py-2.5 text-text-normal outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => {
+              if (confirm("Are you sure you want to delete this channel?")) deleteChannel.mutate();
+            }}
+            className="text-sm text-red hover:underline"
+          >
+            Delete Channel
+          </button>
+          <div className="flex gap-3">
+            <button onClick={closeModal} className="px-4 py-2 text-sm text-text-muted hover:text-text-normal">Cancel</button>
+            <button
+              onClick={() => updateChannel.mutate()}
+              disabled={updateChannel.isPending}
+              className="rounded-[3px] bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-50"
+            >
+              {updateChannel.isPending ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeaveGuildModal() {
+  const { modalData, closeModal } = useUIStore();
+  const guildId = modalData.guildId as string | undefined;
+  const guildName = modalData.guildName as string | undefined;
+  const queryClient = useQueryClient();
+  const removeGuild = useGuildStore((s) => s.removeGuild);
+
+  const leaveGuild = useMutation({
+    mutationFn: () => api.delete(`/users/@me/guilds/${guildId}`),
+    onSuccess: () => {
+      if (guildId) removeGuild(guildId);
+      queryClient.invalidateQueries({ queryKey: ["guilds"] });
+      toast.success("Left server");
+      closeModal();
+    },
+    onError: (err: any) => toast.error(err.message ?? "Failed to leave server"),
+  });
+
+  if (!guildId) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={closeModal}>
+      <div className="w-[440px] rounded-lg bg-background-secondary p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-2 text-lg font-bold text-header-primary">Leave Server</h2>
+        <p className="mb-6 text-sm text-text-muted">
+          Are you sure you want to leave <span className="font-semibold text-text-normal">{guildName ?? "this server"}</span>?
+        </p>
+        <div className="flex justify-end gap-3">
+          <button onClick={closeModal} className="px-4 py-2 text-sm text-text-muted hover:text-text-normal">Cancel</button>
+          <button
+            onClick={() => leaveGuild.mutate()}
+            disabled={leaveGuild.isPending}
+            className="rounded-[3px] bg-red px-4 py-2 text-sm font-medium text-white hover:bg-red-hover disabled:opacity-50"
+          >
+            {leaveGuild.isPending ? "Leaving..." : "Leave Server"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiscoverServersModal() {
+  const closeModal = useUIStore((s) => s.closeModal);
+  const queryClient = useQueryClient();
+  const [inviteCode, setInviteCode] = useState("");
+
+  const joinServer = useMutation({
+    mutationFn: (code: string) => api.post(`/invites/${code}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["guilds"] });
+      toast.success("Joined server");
+      closeModal();
+    },
+    onError: (err: any) => toast.error(err.message ?? "Invalid invite code"),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={closeModal}>
+      <div className="w-[440px] rounded-lg bg-background-secondary p-6" onClick={(e) => e.stopPropagation()}>
+        <Compass size={48} className="mx-auto mb-4 text-brand-light" />
+        <h2 className="mb-2 text-lg font-bold text-header-primary text-center">Join a Server</h2>
+        <p className="mb-4 text-sm text-text-muted text-center">
+          Enter an invite code to join an existing server.
+        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (inviteCode.trim()) joinServer.mutate(inviteCode.trim());
+          }}
+        >
+          <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+            Invite Code
+          </label>
+          <input
+            type="text"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
+            placeholder="hTKzmak"
+            className="w-full rounded-[3px] bg-background-tertiary px-3 py-2.5 text-text-normal outline-none focus:ring-2 focus:ring-brand mb-4"
+            autoFocus
+          />
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={closeModal}
+              className="px-4 py-2 text-sm text-text-muted hover:text-text-normal"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!inviteCode.trim() || joinServer.isPending}
+              className="rounded-[3px] bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-50"
+            >
+              {joinServer.isPending ? "Joining..." : "Join Server"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

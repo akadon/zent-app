@@ -141,12 +141,41 @@ self.addEventListener("sync", (event) => {
 });
 
 async function sendPendingMessages() {
-  // Read from IndexedDB outbox and send
-  // This is triggered when connectivity is restored
-  const clients = await self.clients.matchAll();
-  clients.forEach((client) => {
-    client.postMessage({ type: "SYNC_PENDING_MESSAGES" });
-  });
+  try {
+    const db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("zent-outbox", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("messages", { keyPath: "id", autoIncrement: true });
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+
+    const tx = db.transaction("messages", "readwrite");
+    const store = tx.objectStore("messages");
+    const all = await new Promise((resolve, reject) => {
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+
+    for (const msg of all) {
+      try {
+        const res = await fetch(msg.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: msg.authorization },
+          body: JSON.stringify(msg.body),
+        });
+        if (res.ok) {
+          const delTx = db.transaction("messages", "readwrite");
+          delTx.objectStore("messages").delete(msg.id);
+        }
+      } catch {
+        // Will retry on next sync
+      }
+    }
+    db.close();
+  } catch {
+    // IndexedDB not available or empty — nothing to send
+  }
 }
 
 // Push notifications

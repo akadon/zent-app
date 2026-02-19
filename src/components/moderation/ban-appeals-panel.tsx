@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Gavel, Check, X, AlertTriangle } from "lucide-react";
@@ -70,24 +71,79 @@ export function BanAppealsPanel({ guildId }: BanAppealsPanelProps) {
             )}
 
             {appeal.status === "pending" && (
-              <div className="mt-2 flex gap-1.5">
-                <button
-                  onClick={() => resolveMutation.mutate({ appealId: appeal.id, status: "accepted" })}
-                  className="flex items-center gap-1 rounded bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"
-                >
-                  <Check size={12} /> Accept (Unban)
-                </button>
-                <button
-                  onClick={() => resolveMutation.mutate({ appealId: appeal.id, status: "rejected", reason: "Appeal denied" })}
-                  className="flex items-center gap-1 rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
-                >
-                  <X size={12} /> Reject
-                </button>
-              </div>
+              <AppealActions
+                onResolve={(status, reason) =>
+                  resolveMutation.mutate({ appealId: appeal.id, status, reason })
+                }
+              />
             )}
           </div>
         ))
       )}
+    </div>
+  );
+}
+
+function AppealActions({
+  onResolve,
+}: {
+  onResolve: (status: string, reason?: string) => void;
+}) {
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
+  if (rejecting) {
+    return (
+      <div className="mt-2 space-y-1.5">
+        <input
+          type="text"
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          placeholder="Rejection reason..."
+          className="w-full rounded bg-background-primary px-2 py-1.5 text-xs text-text-normal placeholder-text-muted outline-none"
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && rejectReason.trim()) {
+              onResolve("rejected", rejectReason.trim());
+            }
+            if (e.key === "Escape") setRejecting(false);
+          }}
+        />
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => {
+              if (rejectReason.trim()) onResolve("rejected", rejectReason.trim());
+            }}
+            disabled={!rejectReason.trim()}
+            className="flex items-center gap-1 rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            <X size={12} /> Confirm Reject
+          </button>
+          <button
+            onClick={() => setRejecting(false)}
+            className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-normal"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex gap-1.5">
+      <button
+        onClick={() => onResolve("accepted")}
+        className="flex items-center gap-1 rounded bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"
+      >
+        <Check size={12} /> Accept (Unban)
+      </button>
+      <button
+        onClick={() => setRejecting(true)}
+        className="flex items-center gap-1 rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
+      >
+        <X size={12} /> Reject
+      </button>
     </div>
   );
 }

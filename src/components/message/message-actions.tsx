@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Smile, Reply, Pin, MoreHorizontal, Trash2, Edit, Copy } from "lucide-react";
 import { api } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { EmojiPicker } from "./emoji-picker";
 import type { Message } from "@yxc/types";
 
 interface MessageActionsProps {
@@ -14,10 +16,37 @@ interface MessageActionsProps {
 
 export function MessageActions({ message, channelId, onReply, onEdit }: MessageActionsProps) {
   const [showMore, setShowMore] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const queryClient = useQueryClient();
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handleClick = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showEmojiPicker]);
 
   const handlePin = async () => {
     try {
-      await api.put(`/channels/${channelId}/pins/${message.id}`);
+      if (message.pinned) {
+        await api.delete(`/channels/${channelId}/pins/${message.id}`);
+      } else {
+        await api.put(`/channels/${channelId}/pins/${message.id}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+      queryClient.invalidateQueries({ queryKey: ["pins", channelId] });
+    } catch {}
+  };
+
+  const handleReaction = async (emoji: string) => {
+    try {
+      await api.put(`/channels/${channelId}/messages/${message.id}/reactions/${encodeURIComponent(emoji)}/@me`);
+      queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
     } catch {}
   };
 
@@ -33,13 +62,26 @@ export function MessageActions({ message, channelId, onReply, onEdit }: MessageA
 
   return (
     <div className="absolute -top-4 right-4 z-10 flex items-center gap-0.5 rounded border border-background-tertiary bg-background-secondary p-0.5 shadow-lg">
-      <button
-        onClick={() => {}}
-        className="rounded p-1.5 text-interactive-normal hover:bg-background-primary hover:text-interactive-hover"
-        title="Add Reaction"
-      >
-        <Smile size={16} />
-      </button>
+      <div className="relative" ref={emojiPickerRef}>
+        <button
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          className="rounded p-1.5 text-interactive-normal hover:bg-background-primary hover:text-interactive-hover"
+          title="Add Reaction"
+        >
+          <Smile size={16} />
+        </button>
+        {showEmojiPicker && (
+          <div className="absolute bottom-full right-0 mb-2 z-50">
+            <EmojiPicker
+              onSelect={(emoji) => {
+                handleReaction(emoji);
+                setShowEmojiPicker(false);
+              }}
+              onClose={() => setShowEmojiPicker(false)}
+            />
+          </div>
+        )}
+      </div>
       <button
         onClick={() => onReply?.(message)}
         className="rounded p-1.5 text-interactive-normal hover:bg-background-primary hover:text-interactive-hover"

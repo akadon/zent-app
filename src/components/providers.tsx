@@ -25,10 +25,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadSession();
-    // Register service worker for push notifications
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
   }, [loadSession]);
 
   const activeModal = useUIStore((s) => s.activeModal);
@@ -42,18 +38,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem("accessibility-settings");
       if (saved) {
         const settings = JSON.parse(saved);
-        if (settings.font && settings.font !== "default") {
-          const fontMap: Record<string, string> = {
-            opendyslexic: "OpenDyslexic, sans-serif",
-            lexend: "Lexend, sans-serif",
-            atkinson: "Atkinson Hyperlegible, sans-serif",
-          };
-          if (fontMap[settings.font]) document.body.style.fontFamily = fontMap[settings.font];
+        const fontFamily = settings.fontFamily ?? settings.font;
+        if (fontFamily && fontFamily !== "default") {
+          document.body.style.fontFamily = `"${fontFamily}", sans-serif`;
         }
         if (settings.fontSize) document.documentElement.style.setProperty("--font-size-base", `${settings.fontSize}px`);
         if (settings.highContrast) document.body.classList.add("high-contrast");
         if (settings.reducedMotion) document.body.classList.add("reduce-motion");
-        if (settings.spacing) document.body.classList.add(`spacing-${settings.spacing}`);
+        const spacing = settings.messageSpacing ?? settings.spacing;
+        if (spacing) document.body.classList.add(`spacing-${spacing}`);
         if (settings.saturation !== undefined && settings.saturation !== 100) {
           document.body.style.filter = `saturate(${settings.saturation}%)`;
         }

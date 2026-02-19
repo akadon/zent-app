@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import { gateway } from "@/gateway/client";
+import type { ReadyPayload, GuildCreatePayload } from "@yxc/gateway-types";
+
+// TODO: Presence dispatch to DM participants is not yet implemented on the backend.
+// Once the server sends PRESENCE_UPDATE for DM participants, the client will
+// automatically pick them up via the PRESENCE_UPDATE handler below.
 
 interface PresenceData {
   status: "online" | "idle" | "dnd" | "offline";
@@ -11,6 +16,7 @@ interface PresenceState {
 
   getPresence: (userId: string) => PresenceData;
   setPresence: (userId: string, data: PresenceData) => void;
+  bulkSetPresences: (entries: Array<{ userId: string; data: PresenceData }>) => void;
   initPresenceHandlers: () => () => void;
 }
 
@@ -28,19 +34,59 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
       return { presences: newMap };
     }),
 
-  initPresenceHandlers: () => {
-    const unsub = gateway.on("PRESENCE_UPDATE", (data: unknown) => {
-      const { userId, status, customStatus } = data as {
-        userId: string;
-        status: string;
-        customStatus: { text?: string; emoji?: string } | null;
-      };
-      get().setPresence(userId, {
-        status: status as PresenceData["status"],
-        customStatus: customStatus ?? null,
-      });
-    });
+  bulkSetPresences: (entries) =>
+    set((s) => {
+      const newMap = new Map(s.presences);
+      for (const { userId, data } of entries) {
+        newMap.set(userId, data);
+      }
+      return { presences: newMap };
+    }),
 
-    return unsub;
+  initPresenceHandlers: () => {
+    const unsubs: (() => void)[] = [];
+
+    unsubs.push(
+      gateway.on("PRESENCE_UPDATE", (data: unknown) => {
+        const { userId, status, customStatus } = data as {
+          userId: string;
+          status: string;
+          customStatus: { text?: string; emoji?: string } | null;
+        };
+        get().setPresence(userId, {
+          status: status as PresenceData["status"],
+          customStatus: customStatus ?? null,
+        });
+      })
+    );
+
+    unsubs.push(
+      gateway.on("READY", (data: unknown) => {
+        const ready = data as ReadyPayload;
+        const entries: Array<{ userId: string; data: PresenceData }> = [];
+
+        for (const guild of ready.guilds as GuildCreatePayload[]) {
+          if (!guild.members) continue;
+          for (const member of guild.members) {
+            const user = member.user;
+            if (user && user.status && user.status !== "offline") {
+              entries.push({
+                userId: user.id,
+                data: {
+                  status: user.status as PresenceData["status"],
+                  customStatus: user.customStatus ?? null,
+                },
+              });
+            }
+          }
+        }
+
+        if (entries.length > 0) {
+          get().bulkSetPresences(entries);
+        }
+      })
+    );
+
+    return () => unsubs.forEach((fn) => fn());
   },
 }));
