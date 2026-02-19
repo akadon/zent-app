@@ -19,6 +19,8 @@ interface StatusPickerProps {
 export function StatusPicker({ children }: StatusPickerProps) {
   const [open, setOpen] = useState(false);
   const [currentStatus, setCurrentStatus] = useState("online");
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customStatusText, setCustomStatusText] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -127,15 +129,81 @@ export function StatusPicker({ children }: StatusPickerProps) {
         {/* Divider */}
         <div className="my-2 h-px bg-surface-border" />
 
-        {/* Custom status (placeholder) */}
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-background-hover transition-colors duration-150">
-          <span className="text-lg">💭</span>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-text-normal">
-              Set Custom Status
-            </p>
-          </div>
-        </button>
+        {/* Custom status */}
+        {showCustomInput ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const text = customStatusText.trim();
+              if (text) {
+                gateway.updatePresence(
+                  currentStatus as "online" | "idle" | "dnd" | "invisible",
+                  { text }
+                );
+              } else {
+                gateway.updatePresence(
+                  currentStatus as "online" | "idle" | "dnd" | "invisible",
+                  null
+                );
+              }
+              setShowCustomInput(false);
+              setCustomStatusText("");
+              setOpen(false);
+            }}
+            className="px-2 py-1.5"
+          >
+            <input
+              type="text"
+              value={customStatusText}
+              onChange={(e) => setCustomStatusText(e.target.value)}
+              placeholder="What's on your mind?"
+              maxLength={128}
+              autoFocus
+              className={cn(
+                "w-full px-3 py-2 rounded-lg text-sm",
+                "bg-background-tertiary text-text-normal",
+                "placeholder:text-text-muted/60",
+                "border border-surface-border/50",
+                "outline-none transition-all duration-200",
+                "focus:border-brand/50"
+              )}
+            />
+            <div className="flex justify-end gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCustomInput(false);
+                  setCustomStatusText("");
+                }}
+                className="px-3 py-1.5 text-xs text-text-muted hover:text-text-normal transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-medium",
+                  "bg-brand text-white hover:bg-brand-hover",
+                  "transition-colors duration-150"
+                )}
+              >
+                Save
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            onClick={() => setShowCustomInput(true)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-background-hover transition-colors duration-150"
+          >
+            <span className="text-lg">💭</span>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-text-normal">
+                Set Custom Status
+              </p>
+            </div>
+          </button>
+        )}
       </div>
     </div>
   );

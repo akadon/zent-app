@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 import { Shield, Check, X, AlertTriangle, ChevronUp } from "lucide-react";
 import type { ModerationQueueItem } from "@yxc/types";
 
@@ -27,6 +28,9 @@ export function ModerationPanel({ guildId }: ModerationPanelProps) {
       api.post(`/guilds/${guildId}/moderation/queue/${itemId}/resolve`, { action, note }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["moderation-queue", guildId] });
+    },
+    onError: () => {
+      toast.error("Failed to resolve moderation item");
     },
   });
 

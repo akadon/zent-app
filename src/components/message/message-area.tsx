@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { api } from "@/lib/api";
 import { gateway } from "@/gateway/client";
 import { MessageItem } from "./message-item";
 import { MessageInput } from "./message-input";
 import { TypingIndicator } from "./typing-indicator";
 import type { Message, Channel } from "@yxc/types";
-import { Pin, Calendar, Search, Bell, MoreHorizontal } from "lucide-react";
+import { Pin, Calendar, Search, MoreHorizontal } from "lucide-react";
 import { useUIStore } from "@/stores/ui";
+import { useGuildStore } from "@/stores/guild";
+import { useAuthStore } from "@/stores/auth";
+import { showLocalNotification } from "@/lib/notifications";
 import { MessageSkeleton } from "@/components/ui/skeleton";
 import { PinnedMessages } from "./pinned-messages";
 import { ScheduledMessagesPanel } from "./scheduled-messages-panel";
@@ -24,13 +28,16 @@ interface MessageAreaProps {
 
 export function MessageArea({ channelId, guildId }: MessageAreaProps) {
   const queryClient = useQueryClient();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showPinned, setShowPinned] = useState(false);
   const [showScheduled, setShowScheduled] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const { openModal } = useUIStore();
+  const currentUser = useAuthStore((s) => s.user);
+  const guilds = useGuildStore((s) => s.guilds);
+  const currentGuild = guildId ? guilds.find((g) => g.id === guildId) : null;
 
   // Fetch channel info for the header
   const { data: channelInfo } = useQuery({
@@ -103,6 +110,17 @@ export function MessageArea({ channelId, guildId }: MessageAreaProps) {
           }
         );
         setShouldAutoScroll(true);
+
+        // Show desktop notification if tab is not visible and message is from another user
+        if (
+          document.hidden &&
+          msg.author?.id !== currentUser?.id
+        ) {
+          showLocalNotification(
+            msg.author?.displayName ?? msg.author?.username ?? "New message",
+            msg.content ?? ""
+          );
+        }
       })
     );
 
@@ -150,27 +168,118 @@ export function MessageArea({ channelId, guildId }: MessageAreaProps) {
       })
     );
 
+    unsubs.push(
+      gateway.on("MESSAGE_DELETE_BULK", (data: unknown) => {
+        const bulk = data as { ids: string[]; channelId: string };
+        if (bulk.channelId !== channelId) return;
+
+        const idSet = new Set(bulk.ids);
+        queryClient.setQueryData(
+          ["messages", channelId],
+          (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page: Message[]) =>
+                page.filter((msg) => !idSet.has(msg.id))
+              ),
+            };
+          }
+        );
+      })
+    );
+
+    unsubs.push(
+      gateway.on("MESSAGE_POLL_VOTE_ADD", (data: unknown) => {
+        const vote = data as { channelId: string };
+        if (vote.channelId !== channelId) return;
+        queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+      })
+    );
+
+    unsubs.push(
+      gateway.on("MESSAGE_POLL_VOTE_REMOVE", (data: unknown) => {
+        const vote = data as { channelId: string };
+        if (vote.channelId !== channelId) return;
+        queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+      })
+    );
+
+    unsubs.push(
+      gateway.on("CHANNEL_PINS_UPDATE", (data: unknown) => {
+        const pins = data as { channelId: string };
+        if (pins.channelId !== channelId) return;
+        queryClient.invalidateQueries({ queryKey: ["pins", channelId] });
+      })
+    );
+
+    unsubs.push(
+      gateway.on("MESSAGE_REACTION_ADD", (data: unknown) => {
+        const reaction = data as { channelId: string; messageId: string; userId: string; emoji: { id?: string; name: string } };
+        if (reaction.channelId !== channelId) return;
+        queryClient.setQueryData(
+          ["messages", channelId],
+          (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page: Message[]) =>
+                page.map((msg) => {
+                  if (msg.id !== reaction.messageId) return msg;
+                  const reactions = [...(msg.reactions ?? [])];
+                  const existing = reactions.find((r: any) => r.emoji?.name === reaction.emoji.name && r.emoji?.id === reaction.emoji.id);
+                  if (existing) {
+                    existing.count = (existing.count ?? 0) + 1;
+                    if (reaction.userId === currentUser?.id) existing.me = true;
+                  } else {
+                    reactions.push({ emoji: reaction.emoji, count: 1, me: reaction.userId === currentUser?.id });
+                  }
+                  return { ...msg, reactions };
+                })
+              ),
+            };
+          }
+        );
+      })
+    );
+
+    unsubs.push(
+      gateway.on("MESSAGE_REACTION_REMOVE", (data: unknown) => {
+        const reaction = data as { channelId: string; messageId: string; userId: string; emoji: { id?: string; name: string } };
+        if (reaction.channelId !== channelId) return;
+        queryClient.setQueryData(
+          ["messages", channelId],
+          (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page: Message[]) =>
+                page.map((msg) => {
+                  if (msg.id !== reaction.messageId) return msg;
+                  let reactions = [...(msg.reactions ?? [])];
+                  const existing = reactions.find((r: any) => r.emoji?.name === reaction.emoji.name && r.emoji?.id === reaction.emoji.id);
+                  if (existing) {
+                    existing.count = Math.max(0, (existing.count ?? 1) - 1);
+                    if (reaction.userId === currentUser?.id) existing.me = false;
+                    if (existing.count === 0) {
+                      reactions = reactions.filter((r: any) => r !== existing);
+                    }
+                  }
+                  return { ...msg, reactions };
+                })
+              ),
+            };
+          }
+        );
+      })
+    );
+
     return () => unsubs.forEach((fn) => fn());
-  }, [channelId, queryClient]);
+  }, [channelId, queryClient, currentUser?.id]);
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    if (shouldAutoScroll && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages.length, shouldAutoScroll]);
-
-  const handleScroll = useCallback(() => {
-    if (!scrollRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
-    setShouldAutoScroll(isAtBottom);
-
-    // Load more when scrolling to top
-    if (scrollTop < 100 && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  // Compute firstItemIndex for stable prepend (Virtuoso needs this)
+  const START_INDEX = 100000;
+  const firstItemIndex = useMemo(() => START_INDEX - messages.length, [messages.length]);
 
   return (
     <div className="flex flex-1 flex-col bg-background-primary">
@@ -210,14 +319,9 @@ export function MessageArea({ channelId, guildId }: MessageAreaProps) {
             onClick={() => setShowSearch(!showSearch)}
           />
           <ActionButton
-            icon={<Bell size={16} />}
-            tooltip="Notifications"
-            onClick={() => {}}
-          />
-          <ActionButton
             icon={<MoreHorizontal size={16} />}
             tooltip="More"
-            onClick={() => openModal("invitePeople", { channelId, guildName: "" })}
+            onClick={() => openModal("invitePeople", { channelId, guildName: currentGuild?.name ?? "" })}
           />
         </div>
       </div>
@@ -243,66 +347,77 @@ export function MessageArea({ channelId, guildId }: MessageAreaProps) {
           )}
 
           {/* Messages */}
-          <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            className="flex-1 overflow-y-auto scrollbar-thin"
-          >
+          <div className="flex-1 overflow-hidden">
             {isLoading && (
-              <div className="py-4">
+              <div className="py-4 overflow-y-auto h-full scrollbar-thin">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <MessageSkeleton key={i} delay={i * 100} />
                 ))}
               </div>
             )}
 
-            {isFetchingNextPage && (
-              <div className="flex justify-center py-4">
-                <div className="spinner-brand h-6 w-6" />
-              </div>
-            )}
-
             {!isLoading && messages.length === 0 && (
-              <div className="animate-fade-in-up">
+              <div className="animate-fade-in-up h-full flex items-center justify-center">
                 <NoMessagesState channelName={channelInfo?.name ?? undefined} />
               </div>
             )}
 
-            <div className="flex flex-col pb-6">
-              {messages.map((message, i) => {
-                const prev = messages[i - 1];
-                const isCompact =
-                  prev &&
-                  prev.author.id === message.author.id &&
-                  new Date(message.createdAt).getTime() -
-                    new Date(prev.createdAt).getTime() <
-                    7 * 60 * 1000; // 7 min gap
+            {!isLoading && messages.length > 0 && (
+              <Virtuoso
+                ref={virtuosoRef}
+                className="scrollbar-thin h-full"
+                data={messages}
+                firstItemIndex={firstItemIndex}
+                initialTopMostItemIndex={messages.length - 1}
+                followOutput="smooth"
+                atTopStateChange={(atTop) => {
+                  if (atTop && hasNextPage && !isFetchingNextPage) {
+                    fetchNextPage();
+                  }
+                }}
+                atBottomStateChange={(atBottom) => setShouldAutoScroll(atBottom)}
+                components={{
+                  Header: () =>
+                    isFetchingNextPage ? (
+                      <div className="flex justify-center py-4">
+                        <div className="spinner-brand h-6 w-6" />
+                      </div>
+                    ) : null,
+                }}
+                itemContent={(index, message) => {
+                  const actualIndex = index - firstItemIndex;
+                  const prev = actualIndex > 0 ? messages[actualIndex - 1] : undefined;
+                  const isCompact =
+                    prev &&
+                    prev.author.id === message.author.id &&
+                    new Date(message.createdAt).getTime() -
+                      new Date(prev.createdAt).getTime() <
+                      7 * 60 * 1000;
 
-                return (
-                  <MessageItem
-                    key={message.id}
-                    message={message}
-                    isCompact={!!isCompact}
-                    onReply={(msg) => setReplyingTo(msg)}
-                  />
-                );
-              })}
-            </div>
+                  return (
+                    <MessageItem
+                      key={message.id}
+                      message={message}
+                      isCompact={!!isCompact}
+                      onReply={(msg) => setReplyingTo(msg)}
+                    />
+                  );
+                }}
+              />
+            )}
           </div>
 
           {/* Typing indicator */}
           <TypingIndicator channelId={channelId} />
 
           {/* Message input */}
-          <div className="px-4 pb-6">
-            <MessageInput
-              channelId={channelId}
-              onSend={(content, replyTo) => sendMessage.mutate({ content, replyTo })}
-              disabled={sendMessage.isPending}
-              replyingTo={replyingTo}
-              onCancelReply={() => setReplyingTo(null)}
-            />
-          </div>
+          <MessageInput
+            channelId={channelId}
+            onSend={(content, replyTo) => sendMessage.mutate({ content, replyTo })}
+            disabled={sendMessage.isPending}
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+          />
         </div>
       </div>
     </div>

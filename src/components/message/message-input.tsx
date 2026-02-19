@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { PlusCircle, Smile, X, Paperclip } from "lucide-react";
+import { PlusCircle, Smile, X, Paperclip, BarChart3 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useDraftPersistence } from "@/hooks/use-draft-persistence";
-import { EmojiPicker } from "./emoji-picker";
+import dynamic from "next/dynamic";
+const EmojiPicker = dynamic(() => import("./emoji-picker").then(m => m.EmojiPicker), { ssr: false });
 import { ReplyPreview } from "./reply-preview";
 import type { Message } from "@yxc/types";
 
@@ -29,6 +30,11 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showPollCreator, setShowPollCreator] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [pollMultiselect, setPollMultiselect] = useState(false);
+  const [pollDuration, setPollDuration] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastTypingRef = useRef(0);
@@ -92,6 +98,9 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
         for (const f of files) {
           formData.append("files", f.file);
         }
+        if (replyingTo) {
+          formData.append("message_reference", JSON.stringify({ message_id: replyingTo.id }));
+        }
 
         const token = api.getToken();
         await fetch(`${API_URL}/channels/${channelId}/messages/upload`, {
@@ -103,6 +112,7 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
         setContent("");
         clearDraft();
         setFiles([]);
+        onCancelReply?.();
       } catch {
         // Error handled silently
       } finally {
@@ -123,11 +133,113 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
     }
   };
 
+  const handlePollSubmit = async () => {
+    const validOptions = pollOptions.filter((o) => o.trim());
+    if (!pollQuestion.trim() || validOptions.length < 2) return;
+    try {
+      await api.post(`/channels/${channelId}/polls`, {
+        question: pollQuestion.trim(),
+        options: validOptions.map((text) => text.trim()),
+        allowMultiselect: pollMultiselect,
+        ...(pollDuration ? { duration: parseInt(pollDuration, 10) * 3600 } : {}),
+      });
+      setPollQuestion("");
+      setPollOptions(["", ""]);
+      setPollMultiselect(false);
+      setPollDuration("");
+      setShowPollCreator(false);
+    } catch {}
+  };
+
   return (
     <div className="px-4 pb-6">
       {/* Reply preview */}
       {replyingTo && (
         <ReplyPreview message={replyingTo} onCancel={() => onCancelReply?.()} />
+      )}
+
+      {/* Poll creator */}
+      {showPollCreator && (
+        <div className="mb-2 rounded-lg border border-surface-border bg-background-secondary/70 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-header-primary">
+              <BarChart3 size={16} className="text-brand" />
+              Create Poll
+            </div>
+            <button
+              onClick={() => setShowPollCreator(false)}
+              className="p-1 rounded text-text-muted hover:text-text-normal"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <input
+            value={pollQuestion}
+            onChange={(e) => setPollQuestion(e.target.value)}
+            placeholder="Ask a question..."
+            className="w-full rounded-md bg-background-tertiary px-3 py-1.5 text-sm text-text-normal placeholder-text-muted outline-none focus:ring-1 focus:ring-brand/30"
+          />
+          {pollOptions.map((opt, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={opt}
+                onChange={(e) => {
+                  const next = [...pollOptions];
+                  next[i] = e.target.value;
+                  setPollOptions(next);
+                }}
+                placeholder={`Option ${i + 1}`}
+                className="flex-1 rounded-md bg-background-tertiary px-3 py-1.5 text-sm text-text-normal placeholder-text-muted outline-none focus:ring-1 focus:ring-brand/30"
+              />
+              {pollOptions.length > 2 && (
+                <button
+                  onClick={() => setPollOptions((prev) => prev.filter((_, j) => j !== i))}
+                  className="p-1 rounded text-text-muted hover:text-status-danger"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+          {pollOptions.length < 4 && (
+            <button
+              onClick={() => setPollOptions((prev) => [...prev, ""])}
+              className="text-xs text-brand-light hover:underline"
+            >
+              + Add option
+            </button>
+          )}
+          <div className="flex items-center gap-4 text-xs text-text-muted">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={pollMultiselect}
+                onChange={(e) => setPollMultiselect(e.target.checked)}
+                className="accent-brand"
+              />
+              Multiple choice
+            </label>
+            <label className="flex items-center gap-1.5">
+              Expires in
+              <input
+                type="number"
+                min="1"
+                value={pollDuration}
+                onChange={(e) => setPollDuration(e.target.value)}
+                placeholder="hours"
+                className="w-16 rounded bg-background-tertiary px-2 py-0.5 text-text-normal outline-none"
+              />
+              h
+            </label>
+          </div>
+          <button
+            onClick={handlePollSubmit}
+            disabled={!pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2}
+            className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Create Poll
+          </button>
+        </div>
       )}
 
       {/* File previews */}
@@ -175,8 +287,16 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
         <button
           onClick={() => fileInputRef.current?.click()}
           className="shrink-0 p-3 text-interactive-normal hover:text-interactive-hover"
+          title="Upload file"
         >
           <PlusCircle size={24} />
+        </button>
+        <button
+          onClick={() => setShowPollCreator(!showPollCreator)}
+          className="shrink-0 p-3 text-interactive-normal hover:text-interactive-hover"
+          title="Create poll"
+        >
+          <BarChart3 size={20} />
         </button>
 
         <textarea
@@ -204,8 +324,11 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
             <div className="absolute bottom-full right-0 mb-2">
               <EmojiPicker
                 onSelect={(emoji) => {
-                  setContent((prev) => prev + emoji);
-                  saveDraft(content + emoji);
+                  setContent((prev) => {
+                    const updated = prev + emoji;
+                    saveDraft(updated);
+                    return updated;
+                  });
                 }}
                 onClose={() => setShowEmojiPicker(false)}
               />

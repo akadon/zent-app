@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth";
 import { Shield, Key, Copy, Check, AlertTriangle } from "lucide-react";
 
 type MfaStep = "idle" | "setup" | "verify" | "backup" | "disable";
 
 export function MFASettings() {
+  const user = useAuthStore((s) => s.user);
   const [step, setStep] = useState<MfaStep>("idle");
   const [secret, setSecret] = useState("");
   const [uri, setUri] = useState("");
@@ -18,7 +20,11 @@ export function MFASettings() {
   const [copiedSecret, setCopiedSecret] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaEnabled, setMfaEnabled] = useState(user?.mfaEnabled ?? false);
+
+  useEffect(() => {
+    setMfaEnabled(user?.mfaEnabled ?? false);
+  }, [user?.mfaEnabled]);
 
   const setupMutation = useMutation({
     mutationFn: () => api.post<{ secret: string; uri: string }>("/auth/mfa/setup"),

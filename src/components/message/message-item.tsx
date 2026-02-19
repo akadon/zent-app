@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format, isToday, isYesterday } from "date-fns";
-import type { Message } from "@yxc/types";
+import type { Message, Reaction } from "@yxc/types";
 import { cn } from "@/lib/utils";
 import { MessageContent } from "./message-content";
 import { PollDisplay } from "./poll-display";
@@ -12,6 +12,7 @@ import { InlineEdit } from "./inline-edit";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { Reply, FileText, Download } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface MessageItemProps {
   message: Message;
@@ -76,6 +77,19 @@ export function MessageItem({ message, isCompact, onReply }: MessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const { user } = useAuthStore();
   const isOwn = user?.id === message.author.id;
+  const queryClient = useQueryClient();
+
+  const handleReactionToggle = async (reaction: Reaction) => {
+    try {
+      const emojiKey = encodeURIComponent(reaction.emoji.name);
+      if (reaction.me) {
+        await api.delete(`/channels/${message.channelId}/messages/${message.id}/reactions/${emojiKey}/@me`);
+      } else {
+        await api.put(`/channels/${message.channelId}/messages/${message.id}/reactions/${emojiKey}/@me`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["messages", message.channelId] });
+    } catch {}
+  };
 
   if (isCompact) {
     return (
@@ -98,6 +112,7 @@ export function MessageItem({ message, isCompact, onReply }: MessageItemProps) {
             message={message}
             channelId={message.channelId}
             onReply={onReply ? () => onReply(message) : undefined}
+            onEdit={isOwn ? () => setEditing(true) : undefined}
           />
         </div>
 
@@ -111,8 +126,43 @@ export function MessageItem({ message, isCompact, onReply }: MessageItemProps) {
         </span>
 
         <div className="min-w-0 flex-1">
-          <MessageContent content={message.content} />
+          {editing ? (
+            <div className="animate-fade-in">
+              <InlineEdit
+                content={message.content}
+                onSave={(content) => {
+                  api.patch(`/channels/${message.channelId}/messages/${message.id}`, { content });
+                  setEditing(false);
+                }}
+                onCancel={() => setEditing(false)}
+              />
+            </div>
+          ) : (
+            <MessageContent content={message.content} />
+          )}
           {message.poll && <PollDisplay poll={message.poll} channelId={message.channelId} />}
+
+          {/* Reactions */}
+          {message.reactions && message.reactions.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {message.reactions.map((reaction) => (
+                <button
+                  key={reaction.emoji.name}
+                  onClick={() => handleReactionToggle(reaction)}
+                  className={cn(
+                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs",
+                    "border transition-colors duration-150",
+                    reaction.me
+                      ? "border-brand/50 bg-brand/10 text-brand-light"
+                      : "border-background-tertiary bg-background-secondary text-text-muted hover:bg-background-hover"
+                  )}
+                >
+                  <span>{reaction.emoji.name}</span>
+                  <span className="font-medium">{reaction.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -297,6 +347,28 @@ export function MessageItem({ message, isCompact, onReply }: MessageItemProps) {
                   </a>
                 )}
               </div>
+            ))}
+          </div>
+        )}
+
+        {/* Reactions */}
+        {message.reactions && message.reactions.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {message.reactions.map((reaction) => (
+              <button
+                key={reaction.emoji.name}
+                onClick={() => handleReactionToggle(reaction)}
+                className={cn(
+                  "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs",
+                  "border transition-colors duration-150",
+                  reaction.me
+                    ? "border-brand/50 bg-brand/10 text-brand-light"
+                    : "border-background-tertiary bg-background-secondary text-text-muted hover:bg-background-hover"
+                )}
+              >
+                <span>{reaction.emoji.name}</span>
+                <span className="font-medium">{reaction.count}</span>
+              </button>
             ))}
           </div>
         )}

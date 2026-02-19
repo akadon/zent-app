@@ -6,15 +6,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Zent - Distinctive cyber/neon aesthetic
-        // Deep midnight blues instead of Discord grays
+        // Zent - Spatial/layered aesthetic with warmer dark tones
         background: {
-          primary: "#0a0f1a",      // Deep midnight blue
-          secondary: "#0e1525",    // Slightly lighter midnight
-          tertiary: "#060a12",     // Darkest - almost black with blue tint
-          floating: "#121c2e",     // Modals - elevated
-          hover: "#162035",        // Hover - blue-tinted
-          active: "#1a2740",       // Active/pressed
+          primary: "#0c1018",      // Warm midnight (was #0a0f1a)
+          secondary: "#111720",    // Slightly lighter (was #0e1525)
+          tertiary: "#080c14",     // Darkest
+          floating: "#141c28",     // Modals - elevated (was #121c2e)
+          hover: "#1a2430",        // Hover (was #162035)
+          active: "#1e2a38",       // Active/pressed
         },
         // Surface colors
         surface: {
@@ -128,6 +127,21 @@ const config: Config = {
         "card": "0 4px 20px rgba(0, 0, 0, 0.3)",
         "inner-glow": "inset 0 1px 0 rgba(255, 255, 255, 0.04)",
         "border-glow": "0 0 0 1px rgba(0, 212, 170, 0.2)",
+        // Elevation scale (spatial depth)
+        "e-0": "none",
+        "e-1": "0 2px 8px rgba(0,0,0,0.3)",
+        "e-2": "0 4px 16px rgba(0,0,0,0.4), 0 0 12px rgba(0,212,170,0.04)",
+        "e-3": "0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(0,212,170,0.06)",
+        "e-4": "0 16px 48px rgba(0,0,0,0.6)",
+        "e-5": "0 24px 64px rgba(0,0,0,0.7), 0 0 30px rgba(0,212,170,0.05)",
+      },
+      zIndex: {
+        "e-0": "0",
+        "e-1": "10",
+        "e-2": "20",
+        "e-3": "30",
+        "e-4": "40",
+        "e-5": "50",
       },
       backdropBlur: {
         xs: "2px",
@@ -158,6 +172,13 @@ const config: Config = {
         "pop": "pop 0.35s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
         "border-flow": "borderFlow 3s linear infinite",
         "gradient-shift": "gradientShift 8s ease infinite",
+        // Spatial animations
+        "spring-in": "springIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "spring-out": "springOut 0.3s cubic-bezier(0.55, 0, 0.1, 1)",
+        "slide-up-sheet": "slideUpSheet 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "badge-pulse": "badgePulse 2s infinite ease-in-out",
+        "mention-glow": "mentionGlow 0.5s ease-out forwards",
+        "confetti-pop": "confettiPop 0.35s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
       },
       keyframes: {
         fadeIn: {
@@ -239,6 +260,32 @@ const config: Config = {
         gradientShift: {
           "0%, 100%": { backgroundPosition: "0% 50%" },
           "50%": { backgroundPosition: "100% 50%" },
+        },
+        springIn: {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "60%": { opacity: "1", transform: "scale(1.02)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        springOut: {
+          "0%": { opacity: "1", transform: "scale(1)" },
+          "100%": { opacity: "0", transform: "scale(0.95)" },
+        },
+        slideUpSheet: {
+          "0%": { transform: "translateY(100%)" },
+          "100%": { transform: "translateY(0)" },
+        },
+        badgePulse: {
+          "0%, 100%": { transform: "scale(1)", opacity: "1" },
+          "50%": { transform: "scale(1.1)", opacity: "0.8" },
+        },
+        mentionGlow: {
+          "0%": { borderLeftColor: "transparent", boxShadow: "none" },
+          "100%": { borderLeftColor: "#00d4aa", boxShadow: "-4px 0 12px rgba(0,212,170,0.15)" },
+        },
+        confettiPop: {
+          "0%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.15)" },
+          "100%": { transform: "scale(1)" },
         },
       },
       transitionTimingFunction: {

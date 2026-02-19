@@ -117,6 +117,14 @@ export function ThemeEditor() {
       try {
         const text = await file.text();
         const parsed = JSON.parse(text);
+        if (
+          typeof parsed !== "object" ||
+          parsed === null ||
+          Array.isArray(parsed) ||
+          !Object.values(parsed).every((v) => typeof v === "string")
+        ) {
+          return;
+        }
         setTheme(parsed);
         applyTheme(parsed);
         localStorage.setItem(THEME_KEY, JSON.stringify(parsed));

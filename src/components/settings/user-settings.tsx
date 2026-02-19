@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useUIStore } from "@/stores/ui";
@@ -179,7 +179,8 @@ function AccountTab() {
             {user?.displayName ?? user?.username}
           </h3>
           <p className="text-sm text-text-muted">{user?.username}</p>
-          <p className="text-sm text-text-muted">{(user as any)?.email}</p>
+          {/* email is optional on User type — only included for @me requests */}
+          <p className="text-sm text-text-muted">{user?.email}</p>
         </div>
       </div>
     </div>
@@ -261,7 +262,40 @@ function AppearanceTab() {
   );
 }
 
+const NOTIF_STORAGE_KEY = "notification-settings";
+
+interface NotifSettings {
+  desktopNotifications: boolean;
+  notificationSounds: boolean;
+  unreadBadge: boolean;
+}
+
+const DEFAULT_NOTIF: NotifSettings = {
+  desktopNotifications: true,
+  notificationSounds: true,
+  unreadBadge: true,
+};
+
 function UserNotificationsTab() {
+  const [settings, setSettings] = useState<NotifSettings>(DEFAULT_NOTIF);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(NOTIF_STORAGE_KEY);
+      if (stored) setSettings({ ...DEFAULT_NOTIF, ...JSON.parse(stored) });
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggle = (key: keyof NotifSettings) => {
+    setSettings((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-lg bg-background-secondary p-4">
@@ -274,15 +308,30 @@ function UserNotificationsTab() {
         <div className="space-y-2">
           <label className="flex items-center justify-between">
             <span className="text-sm text-text-normal">Enable Desktop Notifications</span>
-            <input type="checkbox" defaultChecked className="h-4 w-4 accent-brand" />
+            <input
+              type="checkbox"
+              checked={settings.desktopNotifications}
+              onChange={() => toggle("desktopNotifications")}
+              className="h-4 w-4 accent-brand"
+            />
           </label>
           <label className="flex items-center justify-between">
             <span className="text-sm text-text-normal">Enable Notification Sounds</span>
-            <input type="checkbox" defaultChecked className="h-4 w-4 accent-brand" />
+            <input
+              type="checkbox"
+              checked={settings.notificationSounds}
+              onChange={() => toggle("notificationSounds")}
+              className="h-4 w-4 accent-brand"
+            />
           </label>
           <label className="flex items-center justify-between">
             <span className="text-sm text-text-normal">Enable Unread Badge</span>
-            <input type="checkbox" defaultChecked className="h-4 w-4 accent-brand" />
+            <input
+              type="checkbox"
+              checked={settings.unreadBadge}
+              onChange={() => toggle("unreadBadge")}
+              className="h-4 w-4 accent-brand"
+            />
           </label>
         </div>
       </div>

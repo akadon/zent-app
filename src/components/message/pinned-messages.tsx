@@ -12,7 +12,7 @@ interface PinnedMessagesProps {
 }
 
 function getUserColor(userId: string): string {
-  const colors = ["#f47067","#e0823d","#c9b12e","#57ab5a","#39c5cf","#539bf5","#b083f0","#f076a8"];
+  const colors = ["#00f5c4","#22d3ee","#38bdf8","#c084fc","#f472b6","#fb923c","#fbbf24","#00d4aa"];
   let hash = 0;
   for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length]!;

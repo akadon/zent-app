@@ -62,8 +62,9 @@ export function SearchPanel({ guildId, onClose, onNavigate }: SearchPanelProps) 
     if (debouncedQuery) params.set("q", debouncedQuery);
     if (channelId) params.set("channelId", channelId);
     if (authorId) params.set("authorId", authorId);
+    if (dateBefore) params.set("before", dateBefore);
     return params.toString();
-  }, [debouncedQuery, channelId, authorId]);
+  }, [debouncedQuery, channelId, authorId, dateBefore]);
 
   const { data, isLoading, isFetching } = useQuery<SearchResponse>({
     queryKey: ["search", guildId, queryParams],

@@ -1,20 +1,39 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Mic,
   MicOff,
   Headphones,
   VolumeX,
   PhoneOff,
-  Signal,
-  SignalHigh,
-  SignalLow,
-  SignalMedium,
-  Settings,
+  Video,
+  VideoOff,
+  MonitorUp,
+  MonitorOff,
+  Music,
+  Play,
+  Star,
+  StarOff,
+  X,
 } from "lucide-react";
-import { gateway } from "@/gateway/client";
+import { useGuildStore } from "@/stores/guild";
+import { useAuthStore } from "@/stores/auth";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+interface SoundboardSound {
+  id: string;
+  guildId: string;
+  name: string;
+  soundUrl: string;
+  volume?: number;
+  emojiId?: string | null;
+  emojiName?: string | null;
+  userId: string;
+  available: boolean;
+}
 
 interface VoicePanelProps {
   channelName: string;
@@ -24,35 +43,12 @@ interface VoicePanelProps {
   onDisconnect: () => void;
 }
 
-type SignalQuality = "excellent" | "good" | "fair" | "poor";
-
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   const pad = (n: number) => n.toString().padStart(2, "0");
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
-}
-
-function SignalIcon({ quality }: { quality: SignalQuality }) {
-  const iconClass = cn(
-    "h-3.5 w-3.5",
-    quality === "excellent" && "text-green-light",
-    quality === "good" && "text-green-light",
-    quality === "fair" && "text-yellow-light",
-    quality === "poor" && "text-red-light"
-  );
-
-  switch (quality) {
-    case "excellent":
-      return <Signal className={iconClass} />;
-    case "good":
-      return <SignalHigh className={iconClass} />;
-    case "fair":
-      return <SignalMedium className={iconClass} />;
-    case "poor":
-      return <SignalLow className={iconClass} />;
-  }
 }
 
 export function VoicePanel({
@@ -62,11 +58,17 @@ export function VoicePanel({
   channelId,
   onDisconnect,
 }: VoicePanelProps) {
-  const [selfMute, setSelfMute] = useState(false);
-  const [selfDeaf, setSelfDeaf] = useState(false);
+  const voiceConnection = useGuildStore((s) => s.voiceConnection);
+  const { toggleSelfMute, toggleSelfDeaf, toggleSelfVideo, toggleSelfStream, disconnectVoice } = useGuildStore();
   const [elapsed, setElapsed] = useState(0);
-  const [signalQuality] = useState<SignalQuality>("excellent");
+  const [soundboardOpen, setSoundboardOpen] = useState(false);
   const startTime = useRef(Date.now());
+
+  const selfMute = voiceConnection?.selfMute ?? false;
+  const selfDeaf = voiceConnection?.selfDeaf ?? false;
+  const selfVideo = voiceConnection?.selfVideo ?? false;
+  const selfStream = voiceConnection?.selfStream ?? false;
+  const hasLiveKit = voiceConnection?.livekitRoom != null;
 
   // Duration timer
   useEffect(() => {
@@ -80,22 +82,8 @@ export function VoicePanel({
     return () => clearInterval(interval);
   }, []);
 
-  const toggleMute = () => {
-    const newMute = !selfMute;
-    setSelfMute(newMute);
-    gateway.updateVoiceState(guildId, channelId, newMute, selfDeaf);
-  };
-
-  const toggleDeaf = () => {
-    const newDeaf = !selfDeaf;
-    setSelfDeaf(newDeaf);
-    const newMute = newDeaf ? true : selfMute;
-    setSelfMute(newMute);
-    gateway.updateVoiceState(guildId, channelId, newMute, newDeaf);
-  };
-
   const handleDisconnect = () => {
-    gateway.updateVoiceState(guildId, null);
+    disconnectVoice();
     onDisconnect();
   };
 
@@ -104,6 +92,15 @@ export function VoicePanel({
       "border-t border-surface-border/50 px-3 py-3",
       "bg-gradient-to-t from-background-tertiary/80 to-background-secondary"
     )}>
+      {/* Soundboard panel */}
+      {soundboardOpen && (
+        <SoundboardPanel
+          guildId={guildId}
+          channelId={channelId}
+          onClose={() => setSoundboardOpen(false)}
+        />
+      )}
+
       {/* Status row */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -113,15 +110,12 @@ export function VoicePanel({
             <div className="absolute inset-0 h-2.5 w-2.5 rounded-full bg-green animate-ping opacity-50" />
           </div>
           <span className="text-xs font-semibold text-green-light truncate">
-            Voice Connected
+            Connected
           </span>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <SignalIcon quality={signalQuality} />
-          <span className="text-2xs text-text-muted tabular-nums font-medium">
-            {formatDuration(elapsed)}
-          </span>
-        </div>
+        <span className="text-2xs text-text-muted tabular-nums font-medium shrink-0">
+          {formatDuration(elapsed)}
+        </span>
       </div>
 
       {/* Channel info */}
@@ -138,22 +132,41 @@ export function VoicePanel({
       <div className="flex items-center gap-2">
         <VoiceButton
           active={selfMute}
-          onClick={toggleMute}
+          onClick={toggleSelfMute}
           icon={selfMute ? <MicOff size={16} /> : <Mic size={16} />}
           tooltip={selfMute ? "Unmute" : "Mute"}
           danger={selfMute}
         />
         <VoiceButton
           active={selfDeaf}
-          onClick={toggleDeaf}
+          onClick={toggleSelfDeaf}
           icon={selfDeaf ? <VolumeX size={16} /> : <Headphones size={16} />}
           tooltip={selfDeaf ? "Undeafen" : "Deafen"}
           danger={selfDeaf}
         />
+        {hasLiveKit && (
+          <>
+            <VoiceButton
+              active={selfVideo}
+              onClick={toggleSelfVideo}
+              icon={selfVideo ? <VideoOff size={16} /> : <Video size={16} />}
+              tooltip={selfVideo ? "Turn Off Camera" : "Turn On Camera"}
+              danger={selfVideo}
+            />
+            <VoiceButton
+              active={selfStream}
+              onClick={toggleSelfStream}
+              icon={selfStream ? <MonitorOff size={16} /> : <MonitorUp size={16} />}
+              tooltip={selfStream ? "Stop Sharing" : "Share Screen"}
+              danger={selfStream}
+            />
+          </>
+        )}
         <VoiceButton
-          onClick={() => {}}
-          icon={<Settings size={16} />}
-          tooltip="Voice Settings"
+          active={soundboardOpen}
+          onClick={() => setSoundboardOpen(!soundboardOpen)}
+          icon={<Music size={16} />}
+          tooltip="Soundboard"
         />
         <div className="flex-1" />
         <VoiceButton
@@ -194,11 +207,137 @@ function VoiceButton({
           ? "bg-red/10 text-red-light hover:bg-red/20"
           : danger
             ? "bg-red/10 text-red-light hover:bg-red/20"
-            : "bg-background-hover text-text-normal hover:bg-interactive-muted hover:text-header-primary"
+            : active
+              ? "bg-brand/15 text-brand-light hover:bg-brand/25"
+              : "bg-background-hover text-text-normal hover:bg-interactive-muted hover:text-header-primary"
       )}
       title={tooltip}
     >
       {icon}
     </button>
+  );
+}
+
+function SoundboardPanel({
+  guildId,
+  channelId,
+  onClose,
+}: {
+  guildId: string;
+  channelId: string;
+  onClose: () => void;
+}) {
+  const user = useAuthStore((s) => s.user);
+  const userId = user?.id;
+
+  const { data: soundsData } = useQuery({
+    queryKey: ["soundboard", guildId],
+    queryFn: () =>
+      api.get<{ items: SoundboardSound[] }>(
+        `/guilds/${guildId}/soundboard-sounds`
+      ),
+    enabled: !!guildId,
+  });
+
+  const { data: favoritesData } = useQuery({
+    queryKey: ["soundboard-favorites", userId],
+    queryFn: () =>
+      api.get<{ items: SoundboardSound[] }>(
+        `/users/${userId}/soundboard-sounds`
+      ),
+    enabled: !!userId,
+  });
+
+  const sounds = soundsData?.items ?? [];
+  const favoriteIds = new Set(
+    (favoritesData?.items ?? []).map((s) => s.id)
+  );
+
+  const playSound = useMutation({
+    mutationFn: (soundId: string) =>
+      api.post(`/channels/${channelId}/send-soundboard-sound`, {
+        soundId,
+        userId,
+        guildId,
+      }),
+  });
+
+  const addFavorite = useMutation({
+    mutationFn: (soundId: string) =>
+      api.put(`/users/${userId}/soundboard-sounds/${soundId}`),
+  });
+
+  const removeFavorite = useMutation({
+    mutationFn: (soundId: string) =>
+      api.delete(`/users/${userId}/soundboard-sounds/${soundId}`),
+  });
+
+  return (
+    <div className="mb-3 rounded-lg bg-background-tertiary/80 border border-surface-border/50 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-surface-border/30">
+        <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
+          Soundboard
+        </span>
+        <button
+          onClick={onClose}
+          className="text-text-muted hover:text-text-normal transition-colors"
+        >
+          <X size={14} />
+        </button>
+      </div>
+      <div className="max-h-[200px] overflow-y-auto p-1.5 scrollbar-thin">
+        {sounds.length === 0 ? (
+          <p className="text-xs text-text-muted text-center py-4">
+            No sounds available
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-0.5">
+            {sounds.map((sound) => {
+              const isFav = favoriteIds.has(sound.id);
+              return (
+                <div
+                  key={sound.id}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 rounded-md",
+                    "hover:bg-background-hover/50 transition-colors group"
+                  )}
+                >
+                  <button
+                    onClick={() => playSound.mutate(sound.id)}
+                    disabled={playSound.isPending}
+                    className={cn(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+                      "bg-brand/15 text-brand-light hover:bg-brand/25",
+                      "transition-colors active:scale-90"
+                    )}
+                  >
+                    <Play size={12} />
+                  </button>
+                  <span className="text-xs text-text-normal truncate flex-1">
+                    {sound.emojiName ? `${sound.emojiName} ` : ""}
+                    {sound.name}
+                  </span>
+                  <button
+                    onClick={() =>
+                      isFav
+                        ? removeFavorite.mutate(sound.id)
+                        : addFavorite.mutate(sound.id)
+                    }
+                    className={cn(
+                      "shrink-0 transition-colors",
+                      isFav
+                        ? "text-yellow-400 hover:text-yellow-300"
+                        : "text-text-muted/40 hover:text-yellow-400 opacity-0 group-hover:opacity-100"
+                    )}
+                  >
+                    {isFav ? <Star size={12} /> : <StarOff size={12} />}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
