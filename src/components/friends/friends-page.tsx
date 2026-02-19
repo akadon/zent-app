@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { usePresenceStore } from "@/stores/presence";
-import { gateway } from "@/gateway/client";
 import { toast } from "sonner";
 import { UserPlus, Check, X, MessageSquare, UserX, Users, Sparkles, ShieldOff } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,21 +28,7 @@ interface FriendsPageProps {
 
 export function FriendsPage({ onOpenDM }: FriendsPageProps) {
   const [tab, setTab] = useState<Tab>("online");
-  const queryClient = useQueryClient();
-
-  // Invalidate relationships on gateway events
-  useEffect(() => {
-    const unsubAdd = gateway.on("RELATIONSHIP_ADD", () => {
-      queryClient.invalidateQueries({ queryKey: ["relationships"] });
-    });
-    const unsubRemove = gateway.on("RELATIONSHIP_REMOVE", () => {
-      queryClient.invalidateQueries({ queryKey: ["relationships"] });
-    });
-    return () => {
-      unsubAdd();
-      unsubRemove();
-    };
-  }, [queryClient]);
+  // Gateway handlers for relationships are centralized in relationship-service.ts
 
   return (
     <div className="flex flex-1 flex-col bg-background-primary">
