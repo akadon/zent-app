@@ -8,9 +8,7 @@ import {
   type RemoteParticipant,
 } from "livekit-client";
 import type { Guild, Channel, Member, VoiceState } from "@yxc/types";
-import type { ReadyPayload, GuildCreatePayload } from "@yxc/gateway-types";
 import { gateway } from "@/gateway/client";
-import { usePresenceStore } from "@/stores/presence";
 
 interface PendingVoiceServer {
   guildId: string;
@@ -30,17 +28,23 @@ interface VoiceConnection {
 }
 
 interface GuildState {
+  // Data
   guilds: Guild[];
-  selectedGuildId: string | null;
-  selectedChannelId: string | null;
   channels: Map<string, Channel[]>;
   members: Map<string, Member[]>;
   typingUsers: Map<string, Map<string, number>>; // channelId -> userId -> timestamp
   readStates: Array<{ channelId: string; lastMessageId: string | null; mentionCount: number }>;
   voiceStates: Map<string, VoiceState[]>; // channelId -> VoiceState[]
+
+  // Navigation (kept for backward compat, delegates to UI store eventually)
+  selectedGuildId: string | null;
+  selectedChannelId: string | null;
+
+  // Voice connection
   voiceConnection: VoiceConnection | null;
   pendingVoiceServer: PendingVoiceServer | null;
 
+  // Data setters
   setGuilds: (guilds: Guild[]) => void;
   selectGuild: (id: string | null) => void;
   selectChannel: (id: string | null) => void;
@@ -57,6 +61,8 @@ interface GuildState {
   setReadStates: (states: Array<{ channelId: string; lastMessageId: string | null; mentionCount: number }>) => void;
   getVoiceStates: (channelId: string) => VoiceState[];
   setVoiceStates: (channelId: string, states: VoiceState[]) => void;
+
+  // Voice connection methods
   setVoiceConnection: (conn: VoiceConnection | null) => void;
   toggleSelfMute: () => void;
   toggleSelfDeaf: () => void;
@@ -67,6 +73,7 @@ interface GuildState {
   disconnectVoice: () => void;
   consumeVoiceServer: () => PendingVoiceServer | null;
 
+  // Gateway init (kept for backward compat — new code uses services)
   initGatewayHandlers: () => () => void;
 }
 
@@ -165,7 +172,6 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     const conn = get().voiceConnection;
     if (!conn) return;
 
-    // Disconnect existing room if any
     if (conn.livekitRoom) {
       conn.livekitRoom.disconnect();
     }
@@ -175,7 +181,6 @@ export const useGuildStore = create<GuildState>((set, get) => ({
       dynacast: true,
     });
 
-    // Participant events trigger re-render via voiceConnection reference update
     const bump = () => {
       const current = get().voiceConnection;
       if (current?.livekitRoom === room) {
@@ -209,7 +214,6 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     try {
       await room.connect(url, token);
 
-      // Apply current mute state after connect
       if (conn.selfMute) {
         await room.localParticipant.setMicrophoneEnabled(false);
       } else {
@@ -252,8 +256,6 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     const newMute = !conn.selfMute;
     set({ voiceConnection: { ...conn, selfMute: newMute } });
     gateway.updateVoiceState(conn.guildId, conn.channelId, newMute, conn.selfDeaf);
-
-    // Sync with LiveKit
     if (conn.livekitRoom) {
       conn.livekitRoom.localParticipant.setMicrophoneEnabled(!newMute);
     }
@@ -266,15 +268,12 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     const newMute = newDeaf ? true : conn.selfMute;
     set({ voiceConnection: { ...conn, selfDeaf: newDeaf, selfMute: newMute } });
     gateway.updateVoiceState(conn.guildId, conn.channelId, newMute, newDeaf);
-
-    // Sync with LiveKit
     if (conn.livekitRoom) {
       conn.livekitRoom.localParticipant.setMicrophoneEnabled(!newMute);
-      // Mute/unmute all remote audio when deafened
       for (const p of conn.livekitRoom.remoteParticipants.values()) {
         for (const pub of p.trackPublications.values()) {
           if (pub.track && pub.source === Track.Source.Microphone) {
-            pub.track.setEnabled(!newDeaf);
+            (pub.track as any).setEnabled?.(!newDeaf);
           }
         }
       }
@@ -300,9 +299,7 @@ export const useGuildStore = create<GuildState>((set, get) => ({
   disconnectVoice: () => {
     const conn = get().voiceConnection;
     if (conn) {
-      if (conn.livekitRoom) {
-        conn.livekitRoom.disconnect();
-      }
+      if (conn.livekitRoom) conn.livekitRoom.disconnect();
       gateway.updateVoiceState(conn.guildId, null);
     }
     set({ voiceConnection: null, pendingVoiceServer: null });
@@ -314,164 +311,10 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     return pending;
   },
 
+  // Backward compat — old code still calls this. New services handle it.
   initGatewayHandlers: () => {
-    const unsubs: (() => void)[] = [];
-
-    unsubs.push(
-      gateway.on("READY", (data: unknown) => {
-        const ready = data as ReadyPayload;
-        const channelsMap = new Map<string, Channel[]>();
-        const membersMap = new Map<string, Member[]>();
-        const voiceStatesMap = new Map<string, VoiceState[]>();
-        for (const guild of ready.guilds as GuildCreatePayload[]) {
-          if (guild.channels) {
-            channelsMap.set(guild.id, guild.channels);
-          }
-          if (guild.members) {
-            membersMap.set(guild.id, guild.members);
-          }
-          if (guild.voiceStates) {
-            for (const vs of guild.voiceStates) {
-              if (!vs.channelId) continue;
-              const existing = voiceStatesMap.get(vs.channelId) ?? [];
-              existing.push(vs);
-              voiceStatesMap.set(vs.channelId, existing);
-            }
-          }
-        }
-        set({
-          guilds: ready.guilds as Guild[],
-          readStates: ready.readStates ?? [],
-          channels: channelsMap,
-          members: membersMap,
-          voiceStates: voiceStatesMap,
-        });
-
-        // Hydrate presence store from READY guild member data
-        const presenceEntries: Array<{ userId: string; data: { status: "online" | "idle" | "dnd" | "offline"; customStatus: { text?: string; emoji?: string } | null } }> = [];
-        for (const guild of ready.guilds as GuildCreatePayload[]) {
-          if (!guild.members) continue;
-          for (const member of guild.members) {
-            const user = member.user;
-            if (user && user.status && user.status !== "offline") {
-              presenceEntries.push({
-                userId: user.id,
-                data: {
-                  status: user.status,
-                  customStatus: user.customStatus ?? null,
-                },
-              });
-            }
-          }
-        }
-        if (presenceEntries.length > 0) {
-          usePresenceStore.getState().bulkSetPresences(presenceEntries);
-        }
-      })
-    );
-
-    unsubs.push(
-      gateway.on("GUILD_CREATE", (data: unknown) => {
-        get().addGuild(data as Guild);
-      })
-    );
-
-    unsubs.push(
-      gateway.on("GUILD_UPDATE", (data: unknown) => {
-        get().updateGuild(data as Guild);
-      })
-    );
-
-    unsubs.push(
-      gateway.on("GUILD_DELETE", (data: unknown) => {
-        const { id } = data as { id: string };
-        get().removeGuild(id);
-      })
-    );
-
-    unsubs.push(
-      gateway.on("CHANNEL_CREATE", (data: unknown) => {
-        const channel = data as Channel;
-        if (channel.guildId) get().addChannel(channel.guildId, channel);
-      })
-    );
-
-    unsubs.push(
-      gateway.on("CHANNEL_UPDATE", (data: unknown) => {
-        get().updateChannel(data as Channel);
-      })
-    );
-
-    unsubs.push(
-      gateway.on("CHANNEL_DELETE", (data: unknown) => {
-        const { id, guildId } = data as { id: string; guildId: string };
-        get().removeChannel(guildId, id);
-      })
-    );
-
-    unsubs.push(
-      gateway.on("TYPING_START", (data: unknown) => {
-        const { channelId, userId } = data as { channelId: string; userId: string };
-        get().setTyping(channelId, userId);
-        // Auto-clear after 10 seconds
-        setTimeout(() => get().clearTyping(channelId, userId), 10000);
-      })
-    );
-
-    unsubs.push(
-      gateway.on("VOICE_SERVER_UPDATE", (data: unknown) => {
-        const { guildId, token, endpoint } = data as { guildId: string; token: string; endpoint: string };
-        set({ pendingVoiceServer: { guildId, token, endpoint } });
-        // Auto-connect to LiveKit when we receive voice server info
-        get().connectToLiveKit(token, endpoint);
-      })
-    );
-
-    unsubs.push(
-      gateway.on("VOICE_STATE_UPDATE", (data: unknown) => {
-        const state = data as VoiceState;
-        set((s) => {
-          const newMap = new Map(s.voiceStates);
-
-          // Remove user from any previous channel
-          for (const [chId, states] of newMap) {
-            const filtered = states.filter((vs) => vs.userId !== state.userId);
-            if (filtered.length !== states.length) {
-              if (filtered.length === 0) {
-                newMap.delete(chId);
-              } else {
-                newMap.set(chId, filtered);
-              }
-            }
-          }
-
-          // Add user to new channel if they didn't disconnect
-          if (state.channelId) {
-            const existing = newMap.get(state.channelId) ?? [];
-            newMap.set(state.channelId, [...existing, state]);
-          }
-
-          return { voiceStates: newMap };
-        });
-      })
-    );
-
-    // Invalidate relevant queries when webhooks change
-    unsubs.push(
-      gateway.on("WEBHOOKS_UPDATE", (_data: unknown) => {
-        // Webhook updates are guild-scoped; components using webhook queries
-        // should re-fetch. We store nothing in zustand for webhooks, so this
-        // is a no-op until a webhook management UI is added.
-      })
-    );
-
-    unsubs.push(
-      gateway.on("GUILD_AUDIT_LOG_ENTRY_CREATE", (_data: unknown) => {
-        // Audit log entries are append-only. No client-side cache to
-        // invalidate right now — the audit log page fetches on demand.
-      })
-    );
-
-    return () => unsubs.forEach((fn) => fn());
+    // No-op: services now handle gateway events.
+    // Kept for backward compatibility with main-layout.tsx until Phase 2.
+    return () => {};
   },
 }));

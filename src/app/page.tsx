@@ -2,7 +2,7 @@
 
 import { useAuthStore } from "@/stores/auth";
 import { AuthPage } from "@/components/auth/auth-page";
-import { MainLayout } from "@/components/layout/main-layout";
+import { ResponsiveProvider } from "@/layouts/responsive-provider";
 
 export default function Home() {
   const { user, isLoading } = useAuthStore();
@@ -19,5 +19,5 @@ export default function Home() {
     return <AuthPage />;
   }
 
-  return <MainLayout />;
+  return <ResponsiveProvider />;
 }

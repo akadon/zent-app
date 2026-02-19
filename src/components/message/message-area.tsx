@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { api } from "@/lib/api";
-import { gateway } from "@/gateway/client";
 import { MessageItem } from "./message-item";
 import { MessageInput } from "./message-input";
 import { TypingIndicator } from "./typing-indicator";
@@ -12,8 +11,6 @@ import type { Message, Channel } from "@yxc/types";
 import { Pin, Calendar, Search, MoreHorizontal } from "lucide-react";
 import { useUIStore } from "@/stores/ui";
 import { useGuildStore } from "@/stores/guild";
-import { useAuthStore } from "@/stores/auth";
-import { showLocalNotification } from "@/lib/notifications";
 import { MessageSkeleton } from "@/components/ui/skeleton";
 import { PinnedMessages } from "./pinned-messages";
 import { ScheduledMessagesPanel } from "./scheduled-messages-panel";
@@ -35,7 +32,6 @@ export function MessageArea({ channelId, guildId }: MessageAreaProps) {
   const [showScheduled, setShowScheduled] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const { openModal } = useUIStore();
-  const currentUser = useAuthStore((s) => s.user);
   const guilds = useGuildStore((s) => s.guilds);
   const currentGuild = guildId ? guilds.find((g) => g.id === guildId) : null;
 
@@ -88,194 +84,8 @@ export function MessageArea({ channelId, guildId }: MessageAreaProps) {
     },
   });
 
-  // Listen for real-time messages via gateway
-  useEffect(() => {
-    const unsubs: (() => void)[] = [];
-
-    unsubs.push(
-      gateway.on("MESSAGE_CREATE", (data: unknown) => {
-        const msg = data as Message;
-        if (msg.channelId !== channelId) return;
-
-        queryClient.setQueryData(
-          ["messages", channelId],
-          (old: any) => {
-            if (!old) return { pages: [[msg]], pageParams: [undefined] };
-            const allMessages = old.pages.flatMap((p: Message[]) => p);
-            if (allMessages.some((m: Message) => m.id === msg.id)) return old;
-
-            const newPages = [...old.pages];
-            newPages[0] = [msg, ...newPages[0]];
-            return { ...old, pages: newPages };
-          }
-        );
-        setShouldAutoScroll(true);
-
-        // Show desktop notification if tab is not visible and message is from another user
-        if (
-          document.hidden &&
-          msg.author?.id !== currentUser?.id
-        ) {
-          showLocalNotification(
-            msg.author?.displayName ?? msg.author?.username ?? "New message",
-            msg.content ?? ""
-          );
-        }
-      })
-    );
-
-    unsubs.push(
-      gateway.on("MESSAGE_UPDATE", (data: unknown) => {
-        const update = data as { id: string; channelId: string; content: string; editedTimestamp: string };
-        if (update.channelId !== channelId) return;
-
-        queryClient.setQueryData(
-          ["messages", channelId],
-          (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              pages: old.pages.map((page: Message[]) =>
-                page.map((msg) =>
-                  msg.id === update.id
-                    ? { ...msg, content: update.content, editedTimestamp: update.editedTimestamp }
-                    : msg
-                )
-              ),
-            };
-          }
-        );
-      })
-    );
-
-    unsubs.push(
-      gateway.on("MESSAGE_DELETE", (data: unknown) => {
-        const del = data as { id: string; channelId: string };
-        if (del.channelId !== channelId) return;
-
-        queryClient.setQueryData(
-          ["messages", channelId],
-          (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              pages: old.pages.map((page: Message[]) =>
-                page.filter((msg) => msg.id !== del.id)
-              ),
-            };
-          }
-        );
-      })
-    );
-
-    unsubs.push(
-      gateway.on("MESSAGE_DELETE_BULK", (data: unknown) => {
-        const bulk = data as { ids: string[]; channelId: string };
-        if (bulk.channelId !== channelId) return;
-
-        const idSet = new Set(bulk.ids);
-        queryClient.setQueryData(
-          ["messages", channelId],
-          (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              pages: old.pages.map((page: Message[]) =>
-                page.filter((msg) => !idSet.has(msg.id))
-              ),
-            };
-          }
-        );
-      })
-    );
-
-    unsubs.push(
-      gateway.on("MESSAGE_POLL_VOTE_ADD", (data: unknown) => {
-        const vote = data as { channelId: string };
-        if (vote.channelId !== channelId) return;
-        queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
-      })
-    );
-
-    unsubs.push(
-      gateway.on("MESSAGE_POLL_VOTE_REMOVE", (data: unknown) => {
-        const vote = data as { channelId: string };
-        if (vote.channelId !== channelId) return;
-        queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
-      })
-    );
-
-    unsubs.push(
-      gateway.on("CHANNEL_PINS_UPDATE", (data: unknown) => {
-        const pins = data as { channelId: string };
-        if (pins.channelId !== channelId) return;
-        queryClient.invalidateQueries({ queryKey: ["pins", channelId] });
-      })
-    );
-
-    unsubs.push(
-      gateway.on("MESSAGE_REACTION_ADD", (data: unknown) => {
-        const reaction = data as { channelId: string; messageId: string; userId: string; emoji: { id?: string; name: string } };
-        if (reaction.channelId !== channelId) return;
-        queryClient.setQueryData(
-          ["messages", channelId],
-          (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              pages: old.pages.map((page: Message[]) =>
-                page.map((msg) => {
-                  if (msg.id !== reaction.messageId) return msg;
-                  const reactions = [...(msg.reactions ?? [])];
-                  const existing = reactions.find((r: any) => r.emoji?.name === reaction.emoji.name && r.emoji?.id === reaction.emoji.id);
-                  if (existing) {
-                    existing.count = (existing.count ?? 0) + 1;
-                    if (reaction.userId === currentUser?.id) existing.me = true;
-                  } else {
-                    reactions.push({ emoji: reaction.emoji, count: 1, me: reaction.userId === currentUser?.id });
-                  }
-                  return { ...msg, reactions };
-                })
-              ),
-            };
-          }
-        );
-      })
-    );
-
-    unsubs.push(
-      gateway.on("MESSAGE_REACTION_REMOVE", (data: unknown) => {
-        const reaction = data as { channelId: string; messageId: string; userId: string; emoji: { id?: string; name: string } };
-        if (reaction.channelId !== channelId) return;
-        queryClient.setQueryData(
-          ["messages", channelId],
-          (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              pages: old.pages.map((page: Message[]) =>
-                page.map((msg) => {
-                  if (msg.id !== reaction.messageId) return msg;
-                  let reactions = [...(msg.reactions ?? [])];
-                  const existing = reactions.find((r: any) => r.emoji?.name === reaction.emoji.name && r.emoji?.id === reaction.emoji.id);
-                  if (existing) {
-                    existing.count = Math.max(0, (existing.count ?? 1) - 1);
-                    if (reaction.userId === currentUser?.id) existing.me = false;
-                    if (existing.count === 0) {
-                      reactions = reactions.filter((r: any) => r !== existing);
-                    }
-                  }
-                  return { ...msg, reactions };
-                })
-              ),
-            };
-          }
-        );
-      })
-    );
-
-    return () => unsubs.forEach((fn) => fn());
-  }, [channelId, queryClient, currentUser?.id]);
+  // Gateway handlers for messages are centralized in message-service.ts
+  // and initialized once in providers.tsx. No per-component subscriptions needed.
 
   // Compute firstItemIndex for stable prepend (Virtuoso needs this)
   const START_INDEX = 100000;
