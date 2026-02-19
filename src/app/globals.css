@@ -5,6 +5,9 @@
 /* ── Font imports ── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* ── Spatial depth utilities ── */
+@import "../shared/styles/spatial.css";
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -16,7 +19,7 @@
   body {
     height: 100%;
     overflow: hidden;
-    background-color: #0a0f1a;
+    background-color: #0c1018;
     color: #b8d4e8;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
