@@ -458,7 +458,7 @@ export const useGuildStore = create<GuildState>((set, get) => ({
 
     // Invalidate relevant queries when webhooks change
     unsubs.push(
-      gateway.on("WEBHOOKS_UPDATE" as any, (_data: unknown) => {
+      gateway.on("WEBHOOKS_UPDATE", (_data: unknown) => {
         // Webhook updates are guild-scoped; components using webhook queries
         // should re-fetch. We store nothing in zustand for webhooks, so this
         // is a no-op until a webhook management UI is added.
@@ -466,7 +466,7 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     );
 
     unsubs.push(
-      gateway.on("GUILD_AUDIT_LOG_ENTRY_CREATE" as any, (_data: unknown) => {
+      gateway.on("GUILD_AUDIT_LOG_ENTRY_CREATE", (_data: unknown) => {
         // Audit log entries are append-only. No client-side cache to
         // invalidate right now — the audit log page fetches on demand.
       })

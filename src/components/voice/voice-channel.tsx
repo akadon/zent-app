@@ -161,7 +161,9 @@ export function VoiceChannel({ channelId, guildId, channelName, channelType }: V
 
   const moveToAudience = useMutation({
     mutationFn: (targetUserId: string) =>
-      api.delete(`/stage-instances/${channelId}/speakers/${targetUserId}`),
+      api.delete(`/stage-instances/${channelId}/speakers/${targetUserId}`, {
+        guildId,
+      }),
   });
 
   // Server mute/deafen mutations

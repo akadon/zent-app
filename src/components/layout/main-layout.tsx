@@ -364,6 +364,7 @@ export function MainLayout() {
                 <MessageArea channelId={dmChannelId} guildId={null} />
               ) : (
                 <FriendsPage onOpenDM={(id) => { setDmChannelId(id); setShowFriends(false); selectGuild(null); }} />
+              )
             ) : selectedChannelId ? (
               <MessageArea channelId={selectedChannelId} guildId={selectedGuildId} />
             ) : (
