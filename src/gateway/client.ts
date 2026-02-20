@@ -6,6 +6,7 @@ import type {
   HelloPayload,
   ReadyPayload,
 } from "@yxc/gateway-types";
+import { useUIStore } from "@/stores/ui";
 
 type EventHandler = (data: unknown) => void;
 
@@ -35,27 +36,36 @@ export class GatewayClient {
       this.handlePayload(payload);
     });
 
+    this.socket.on("connect", () => {
+      useUIStore.getState().setConnectionStatus("connected");
+    });
+
     this.socket.on("disconnect", () => {
       this.stopHeartbeat();
       // Attempt reconnect with resume
       if (this.sessionId && this.token) {
         this.resuming = true;
+        useUIStore.getState().setConnectionStatus("reconnecting");
         setTimeout(() => {
           if (this.token && !this.socket?.connected) {
             this.socket?.connect();
           }
         }, 1000 + Math.random() * 3000);
+      } else {
+        useUIStore.getState().setConnectionStatus("disconnected");
       }
     });
 
     this.socket.on("connect_error", (err) => {
       console.error("Gateway connection error:", err.message);
+      useUIStore.getState().setConnectionStatus("reconnecting");
     });
   }
 
   disconnect() {
     this.resuming = false;
     this.stopHeartbeat();
+    useUIStore.getState().setConnectionStatus("disconnected");
     this.socket?.disconnect();
     this.socket = null;
     this.sessionId = null;

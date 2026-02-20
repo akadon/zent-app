@@ -15,6 +15,8 @@ type ModalType =
 
 type MobileTab = "home" | "servers" | "dms" | "search" | "profile";
 
+type ConnectionStatus = "connected" | "disconnecting" | "reconnecting" | "disconnected";
+
 interface UIState {
   // Modals
   activeModal: ModalType;
@@ -41,6 +43,10 @@ interface UIState {
   // Focus mode
   focusMode: boolean;
   toggleFocusMode: () => void;
+
+  // Gateway connection
+  connectionStatus: ConnectionStatus;
+  setConnectionStatus: (status: ConnectionStatus) => void;
 
   // Mobile
   mobileMenuOpen: boolean;
@@ -74,6 +80,10 @@ export const useUIStore = create<UIState>((set) => ({
   // Focus mode
   focusMode: false,
   toggleFocusMode: () => set((s) => ({ focusMode: !s.focusMode })),
+
+  // Gateway connection
+  connectionStatus: "disconnected",
+  setConnectionStatus: (status) => set({ connectionStatus: status }),
 
   // Mobile
   mobileMenuOpen: false,
