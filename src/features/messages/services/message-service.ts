@@ -98,15 +98,81 @@ export function initMessageHandlers(queryClient: QueryClient): () => void {
 
   unsubs.push(
     gateway.on("MESSAGE_POLL_VOTE_ADD", (data: unknown) => {
-      const vote = data as { channelId: string };
-      queryClient.invalidateQueries({ queryKey: ["messages", vote.channelId] });
+      const vote = data as {
+        channelId: string; messageId: string; optionId: string;
+        userId: string; pollId: string; guildId: string | null;
+      };
+      const currentUser = useAuthStore.getState().user;
+      queryClient.setQueryData(
+        ["messages", vote.channelId],
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page: Message[]) =>
+              page.map((msg) => {
+                if (msg.id !== vote.messageId || !msg.poll) return msg;
+                return {
+                  ...msg,
+                  poll: {
+                    ...msg.poll,
+                    totalVotes: msg.poll.totalVotes + 1,
+                    options: msg.poll.options.map((opt: any) =>
+                      opt.id === vote.optionId
+                        ? {
+                            ...opt,
+                            votes: opt.votes + 1,
+                            voted: opt.voted || vote.userId === currentUser?.id,
+                          }
+                        : opt
+                    ),
+                  },
+                };
+              })
+            ),
+          };
+        }
+      );
     })
   );
 
   unsubs.push(
     gateway.on("MESSAGE_POLL_VOTE_REMOVE", (data: unknown) => {
-      const vote = data as { channelId: string };
-      queryClient.invalidateQueries({ queryKey: ["messages", vote.channelId] });
+      const vote = data as {
+        channelId: string; messageId: string; optionId: string;
+        userId: string; pollId: string; guildId: string | null;
+      };
+      const currentUser = useAuthStore.getState().user;
+      queryClient.setQueryData(
+        ["messages", vote.channelId],
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page: Message[]) =>
+              page.map((msg) => {
+                if (msg.id !== vote.messageId || !msg.poll) return msg;
+                return {
+                  ...msg,
+                  poll: {
+                    ...msg.poll,
+                    totalVotes: Math.max(0, msg.poll.totalVotes - 1),
+                    options: msg.poll.options.map((opt: any) =>
+                      opt.id === vote.optionId
+                        ? {
+                            ...opt,
+                            votes: Math.max(0, opt.votes - 1),
+                            voted: vote.userId === currentUser?.id ? false : opt.voted,
+                          }
+                        : opt
+                    ),
+                  },
+                };
+              })
+            ),
+          };
+        }
+      );
     })
   );
 

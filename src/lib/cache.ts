@@ -42,80 +42,72 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-async function getFromStore<T>(storeName: StoreName, key: string): Promise<T | undefined> {
-  const db = await openDB();
-  try {
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(storeName, "readonly");
-      const store = tx.objectStore(storeName);
-      const request = store.get(key);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result?.data as T);
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+function getDB(): Promise<IDBDatabase> {
+  if (!dbPromise) {
+    dbPromise = openDB().catch((err) => {
+      dbPromise = null;
+      throw err;
     });
-  } finally {
-    db.close();
   }
+  return dbPromise;
+}
+
+async function getFromStore<T>(storeName: StoreName, key: string): Promise<T | undefined> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const request = store.get(key);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result?.data as T);
+  });
 }
 
 async function putInStore(storeName: StoreName, key: string, data: any, extras: Record<string, any> = {}): Promise<void> {
-  const db = await openDB();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(storeName, "readwrite");
-      const store = tx.objectStore(storeName);
-      store.put({ key, data, timestamp: Date.now(), ...extras });
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  } finally {
-    db.close();
-  }
+  const db = await getDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    store.put({ key, data, timestamp: Date.now(), ...extras });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 async function getAllByIndex<T>(storeName: StoreName, indexName: string, value: string): Promise<T[]> {
-  const db = await openDB();
-  try {
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(storeName, "readonly");
-      const store = tx.objectStore(storeName);
-      const index = store.index(indexName);
-      const request = index.getAll(value);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result.map((r: any) => r.data) as T[]);
-    });
-  } finally {
-    db.close();
-  }
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const index = store.index(indexName);
+    const request = index.getAll(value);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result.map((r: any) => r.data) as T[]);
+  });
 }
 
 async function deleteFromStore(storeName: StoreName, key: string): Promise<void> {
-  const db = await openDB();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(storeName, "readwrite");
-      const store = tx.objectStore(storeName);
-      store.delete(key);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  } finally {
-    db.close();
-  }
+  const db = await getDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    store.delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 async function clearStore(storeName: StoreName): Promise<void> {
-  const db = await openDB();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(storeName, "readwrite");
-      const store = tx.objectStore(storeName);
-      store.clear();
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  } finally {
-    db.close();
-  }
+  const db = await getDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    store.clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 // High-level cache API
@@ -182,18 +174,14 @@ export const cache = {
     return key;
   },
   async getOutbox() {
-    const db = await openDB();
-    try {
-      return await new Promise<any[]>((resolve, reject) => {
-        const tx = db.transaction("outbox", "readonly");
-        const store = tx.objectStore("outbox");
-        const request = store.getAll();
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-      });
-    } finally {
-      db.close();
-    }
+    const db = await getDB();
+    return new Promise<any[]>((resolve, reject) => {
+      const tx = db.transaction("outbox", "readonly");
+      const store = tx.objectStore("outbox");
+      const request = store.getAll();
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
   },
   async removeFromOutbox(key: string) {
     await deleteFromStore("outbox", key);

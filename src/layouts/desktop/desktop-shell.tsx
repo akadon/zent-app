@@ -124,6 +124,7 @@ export function DesktopShell() {
           "parallax-shift",
           showChannelPanel && "parallax-shift-right"
         )}>
+          <ConnectionBanner />
           <ErrorBoundary>
             <DesktopMain />
           </ErrorBoundary>
@@ -153,6 +154,28 @@ export function DesktopShell() {
       {activeModal === "userSettings" && <UserSettings />}
       {activeModal === "guildSettings" && <GuildSettings />}
       {activeModal === "discoverServers" && <DiscoverServersModal />}
+    </div>
+  );
+}
+
+function ConnectionBanner() {
+  const connectionStatus = useUIStore((s) => s.connectionStatus);
+
+  if (connectionStatus === "connected") return null;
+
+  const label =
+    connectionStatus === "reconnecting"
+      ? "Reconnecting to gateway..."
+      : connectionStatus === "disconnecting"
+        ? "Disconnecting..."
+        : "Disconnected from gateway";
+
+  return (
+    <div className="flex items-center justify-center gap-2 bg-accent-orange/90 px-3 py-1 text-xs font-medium text-background-primary">
+      {connectionStatus === "reconnecting" && (
+        <span className="inline-block h-3 w-3 animate-spin-slow rounded-full border-2 border-background-primary border-t-transparent" />
+      )}
+      <span>{label}</span>
     </div>
   );
 }
