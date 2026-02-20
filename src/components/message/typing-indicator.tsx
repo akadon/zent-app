@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useGuildStore } from "@/stores/guild";
 import { useAuthStore } from "@/stores/auth";
 
@@ -11,21 +11,25 @@ interface TypingIndicatorProps {
 export function TypingIndicator({ channelId }: TypingIndicatorProps) {
   const typingUsers = useGuildStore((s) => s.typingUsers);
   const currentUserId = useAuthStore((s) => s.user?.id);
-  const [, forceUpdate] = useState(0);
-
-  // Re-render periodically to clear expired typing states
-  useEffect(() => {
-    const interval = setInterval(() => forceUpdate((v) => v + 1), 2000);
-    return () => clearInterval(interval);
-  }, []);
+  const [tick, forceUpdate] = useState(0);
 
   const channelTyping = typingUsers.get(channelId);
-  if (!channelTyping) return null;
+  const hasTypers = channelTyping && channelTyping.size > 0;
 
-  const now = Date.now();
-  const activeTypers = Array.from(channelTyping.entries())
-    .filter(([userId, ts]) => userId !== currentUserId && now - ts < 10000)
-    .map(([userId]) => userId);
+  // Only run interval when there are active typers
+  useEffect(() => {
+    if (!hasTypers) return;
+    const interval = setInterval(() => forceUpdate((v) => v + 1), 2000);
+    return () => clearInterval(interval);
+  }, [hasTypers]);
+
+  const activeTypers = useMemo(() => {
+    if (!channelTyping) return [];
+    const now = Date.now();
+    return Array.from(channelTyping.entries())
+      .filter(([userId, ts]) => userId !== currentUserId && now - ts < 10000)
+      .map(([userId]) => userId);
+  }, [channelTyping, currentUserId, tick]);
 
   if (activeTypers.length === 0) return null;
 

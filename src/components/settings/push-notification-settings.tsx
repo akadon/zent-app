@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, BellOff, BellRing, Check, X } from 'lucide-react';
 import { requestNotificationPermission, registerServiceWorker, subscribeToPush } from '@/lib/notifications';
+import { api } from '@/lib/api';
 
 const STORAGE_KEY = 'zent:notification-settings';
 
@@ -55,7 +56,8 @@ export function PushNotificationSettings() {
       setPermission(result);
       if (result === 'granted') {
         const registration = await registerServiceWorker();
-        await subscribeToPush(registration);
+        const subscription = await subscribeToPush(registration);
+        await api.post('/users/@me/push-subscriptions', subscription.toJSON());
       }
     } catch {}
   }, []);

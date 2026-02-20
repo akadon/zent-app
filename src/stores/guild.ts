@@ -36,18 +36,12 @@ interface GuildState {
   readStates: Array<{ channelId: string; lastMessageId: string | null; mentionCount: number }>;
   voiceStates: Map<string, VoiceState[]>; // channelId -> VoiceState[]
 
-  // Navigation (kept for backward compat, delegates to UI store eventually)
-  selectedGuildId: string | null;
-  selectedChannelId: string | null;
-
   // Voice connection
   voiceConnection: VoiceConnection | null;
   pendingVoiceServer: PendingVoiceServer | null;
 
   // Data setters
   setGuilds: (guilds: Guild[]) => void;
-  selectGuild: (id: string | null) => void;
-  selectChannel: (id: string | null) => void;
   setChannels: (guildId: string, channels: Channel[]) => void;
   setMembers: (guildId: string, members: Member[]) => void;
   addGuild: (guild: Guild) => void;
@@ -79,8 +73,6 @@ interface GuildState {
 
 export const useGuildStore = create<GuildState>((set, get) => ({
   guilds: [],
-  selectedGuildId: null,
-  selectedChannelId: null,
   channels: new Map(),
   members: new Map(),
   typingUsers: new Map(),
@@ -90,8 +82,6 @@ export const useGuildStore = create<GuildState>((set, get) => ({
   pendingVoiceServer: null,
 
   setGuilds: (guilds) => set({ guilds }),
-  selectGuild: (id) => set({ selectedGuildId: id, selectedChannelId: null }),
-  selectChannel: (id) => set({ selectedChannelId: id }),
   setChannels: (guildId, channels) =>
     set((s) => {
       const newMap = new Map(s.channels);
@@ -106,10 +96,24 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     }),
   addGuild: (guild) => set((s) => ({ guilds: [...s.guilds, guild] })),
   removeGuild: (guildId) =>
-    set((s) => ({
-      guilds: s.guilds.filter((g) => g.id !== guildId),
-      selectedGuildId: s.selectedGuildId === guildId ? null : s.selectedGuildId,
-    })),
+    set((s) => {
+      const channels = new Map(s.channels);
+      const members = new Map(s.members);
+      const voiceStates = new Map(s.voiceStates);
+      // Clean voice states for channels belonging to this guild
+      const guildChannels = channels.get(guildId) ?? [];
+      for (const ch of guildChannels) {
+        voiceStates.delete(ch.id);
+      }
+      channels.delete(guildId);
+      members.delete(guildId);
+      return {
+        guilds: s.guilds.filter((g) => g.id !== guildId),
+        channels,
+        members,
+        voiceStates,
+      };
+    }),
   updateGuild: (guild) =>
     set((s) => ({
       guilds: s.guilds.map((g) => (g.id === guild.id ? { ...g, ...guild } : g)),
@@ -140,10 +144,7 @@ export const useGuildStore = create<GuildState>((set, get) => ({
         guildId,
         existing.filter((c) => c.id !== channelId)
       );
-      return {
-        channels: newMap,
-        selectedChannelId: s.selectedChannelId === channelId ? null : s.selectedChannelId,
-      };
+      return { channels: newMap };
     }),
   setTyping: (channelId, userId) =>
     set((s) => {

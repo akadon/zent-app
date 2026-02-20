@@ -109,12 +109,68 @@ export function initGuildHandlers(): () => void {
   );
 
   unsubs.push(
-    gateway.on("TYPING_START", (data: unknown) => {
-      const { channelId, userId } = data as { channelId: string; userId: string };
-      store.getState().setTyping(channelId, userId);
-      setTimeout(() => store.getState().clearTyping(channelId, userId), 10000);
+    gateway.on("GUILD_MEMBER_ADD", (data: unknown) => {
+      const member = data as Member & { guildId: string };
+      store.setState((s) => {
+        const newMap = new Map(s.members);
+        const existing = newMap.get(member.guildId) ?? [];
+        if (!existing.some((m) => m.user?.id === member.user?.id)) {
+          newMap.set(member.guildId, [...existing, member]);
+        }
+        return { members: newMap };
+      });
     })
   );
 
-  return () => unsubs.forEach((fn) => fn());
+  unsubs.push(
+    gateway.on("GUILD_MEMBER_REMOVE", (data: unknown) => {
+      const { guildId, userId } = data as { guildId: string; userId: string };
+      store.setState((s) => {
+        const newMap = new Map(s.members);
+        const existing = newMap.get(guildId) ?? [];
+        newMap.set(guildId, existing.filter((m) => m.user?.id !== userId));
+        return { members: newMap };
+      });
+    })
+  );
+
+  unsubs.push(
+    gateway.on("GUILD_MEMBER_UPDATE", (data: unknown) => {
+      const updated = data as Member & { guildId: string };
+      store.setState((s) => {
+        const newMap = new Map(s.members);
+        const existing = newMap.get(updated.guildId) ?? [];
+        newMap.set(
+          updated.guildId,
+          existing.map((m) => (m.user?.id === updated.user?.id ? { ...m, ...updated } : m))
+        );
+        return { members: newMap };
+      });
+    })
+  );
+
+  const typingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+  unsubs.push(
+    gateway.on("TYPING_START", (data: unknown) => {
+      const { channelId, userId } = data as { channelId: string; userId: string };
+      store.getState().setTyping(channelId, userId);
+      const key = `${channelId}:${userId}`;
+      const existing = typingTimeouts.get(key);
+      if (existing) clearTimeout(existing);
+      typingTimeouts.set(
+        key,
+        setTimeout(() => {
+          store.getState().clearTyping(channelId, userId);
+          typingTimeouts.delete(key);
+        }, 10000)
+      );
+    })
+  );
+
+  return () => {
+    unsubs.forEach((fn) => fn());
+    for (const t of typingTimeouts.values()) clearTimeout(t);
+    typingTimeouts.clear();
+  };
 }

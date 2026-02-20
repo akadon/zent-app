@@ -258,5 +258,25 @@ export function initMessageHandlers(queryClient: QueryClient): () => void {
     })
   );
 
+  unsubs.push(
+    gateway.on("MESSAGE_REACTION_REMOVE_ALL", (data: unknown) => {
+      const { channelId, messageId } = data as { channelId: string; messageId: string };
+      queryClient.setQueryData(
+        ["messages", channelId],
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page: Message[]) =>
+              page.map((msg) =>
+                msg.id === messageId ? { ...msg, reactions: [] } : msg
+              )
+            ),
+          };
+        }
+      );
+    })
+  );
+
   return () => unsubs.forEach((fn) => fn());
 }
