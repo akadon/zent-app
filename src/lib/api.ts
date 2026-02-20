@@ -38,7 +38,8 @@ class ApiClient {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ message: "Request failed" }));
-      throw new ApiError(res.status, error.message ?? "Request failed");
+      const retryAfter = res.headers.get("X-RateLimit-Reset-After") || res.headers.get("Retry-After");
+      throw new ApiError(res.status, error.message ?? "Request failed", retryAfter ? parseFloat(retryAfter) : undefined);
     }
 
     if (res.status === 204) return undefined as T;
@@ -81,9 +82,14 @@ class ApiClient {
 export class ApiError extends Error {
   constructor(
     public status: number,
-    message: string
+    message: string,
+    public retryAfter?: number
   ) {
     super(message);
+  }
+
+  get isRateLimited(): boolean {
+    return this.status === 429;
   }
 }
 
