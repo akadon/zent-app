@@ -30,7 +30,12 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
   setPresence: (userId, data) =>
     set((s) => {
       const newMap = new Map(s.presences);
-      newMap.set(userId, data);
+      // Remove offline users to prevent unbounded growth
+      if (data.status === "offline") {
+        newMap.delete(userId);
+      } else {
+        newMap.set(userId, data);
+      }
       return { presences: newMap };
     }),
 

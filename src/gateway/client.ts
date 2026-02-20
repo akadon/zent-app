@@ -22,6 +22,8 @@ export class GatewayClient {
   private handlers = new Map<string, Set<EventHandler>>();
   private resuming = false;
   private heartbeatIntervalMs = 41250;
+  private reconnectAttempts = 0;
+  private maxReconnectDelay = 60000;
 
   connect(token: string) {
     this.token = token;
@@ -37,20 +39,24 @@ export class GatewayClient {
     });
 
     this.socket.on("connect", () => {
+      this.reconnectAttempts = 0;
       useUIStore.getState().setConnectionStatus("connected");
     });
 
     this.socket.on("disconnect", () => {
       this.stopHeartbeat();
-      // Attempt reconnect with resume
+      // Attempt reconnect with resume and exponential backoff
       if (this.sessionId && this.token) {
         this.resuming = true;
         useUIStore.getState().setConnectionStatus("reconnecting");
+        const baseDelay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
+        const jitter = Math.random() * baseDelay * 0.5;
+        this.reconnectAttempts++;
         setTimeout(() => {
           if (this.token && !this.socket?.connected) {
             this.socket?.connect();
           }
-        }, 1000 + Math.random() * 3000);
+        }, baseDelay + jitter);
       } else {
         useUIStore.getState().setConnectionStatus("disconnected");
       }
@@ -64,12 +70,14 @@ export class GatewayClient {
 
   disconnect() {
     this.resuming = false;
+    this.reconnectAttempts = 0;
     this.stopHeartbeat();
     useUIStore.getState().setConnectionStatus("disconnected");
     this.socket?.disconnect();
     this.socket = null;
     this.sessionId = null;
     this.lastSequence = null;
+    this.handlers.clear();
   }
 
   on(event: GatewayEvent | "READY" | "RESUMED", handler: EventHandler) {

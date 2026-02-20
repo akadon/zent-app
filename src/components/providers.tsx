@@ -39,7 +39,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   // Initialize gateway + all feature services when authenticated
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      // Clear caches on logout to prevent data leak between accounts
+      if (servicesInitialized.current) {
+        queryClient.clear();
+        usePresenceStore.setState({ presences: new Map() });
+      }
+      return;
+    }
     if (servicesInitialized.current) return;
     servicesInitialized.current = true;
 
