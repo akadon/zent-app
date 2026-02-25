@@ -1,5 +1,3 @@
-"use client";
-
 import { useUIStore } from "@/stores/ui";
 import { Compass } from "lucide-react";
 

@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X, Filter, Hash, User, Calendar, ChevronDown } from "lucide-react";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useUIStore } from "@/stores/ui";
 import { FriendsPage } from "@/components/friends/friends-page";
 import { MessageArea } from "@/components/message/message-area";

@@ -1,10 +1,9 @@
-"use client";
-
 import { useAuthStore } from "@/stores/auth";
 import { AuthPage } from "@/components/auth/auth-page";
 import { ResponsiveProvider } from "@/layouts/responsive-provider";
+import { Providers } from "@/components/providers";
 
-export default function Home() {
+function AppContent() {
   const { user, isLoading } = useAuthStore();
 
   if (isLoading) {
@@ -20,4 +19,12 @@ export default function Home() {
   }
 
   return <ResponsiveProvider />;
+}
+
+export function App() {
+  return (
+    <Providers>
+      <AppContent />
+    </Providers>
+  );
 }

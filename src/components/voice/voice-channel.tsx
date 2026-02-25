@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useEffect, useRef, useCallback, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -21,7 +19,7 @@ import { Track, type RemoteTrackPublication } from "livekit-client";
 import { ChannelType } from "@yxc/types";
 import { useGuildStore } from "@/stores/guild";
 import { useAuthStore } from "@/stores/auth";
-import { gateway } from "@/gateway/client";
+import { joinVoice } from "@/features/voice/services/voice-service";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { VolumeControl } from "./volume-control";
@@ -188,17 +186,7 @@ export function VoiceChannel({ channelId, guildId, channelName, channelType }: V
   }, [members]);
 
   const handleConnect = () => {
-    gateway.updateVoiceState(guildId, channelId, false, false);
-    setVoiceConnection({
-      guildId,
-      channelId,
-      selfMute: false,
-      selfDeaf: false,
-      selfVideo: false,
-      selfStream: false,
-      livekitRoom: null,
-      livekitToken: null,
-    });
+    joinVoice(guildId, channelId, { channelType: channelType ?? 2 });
   };
 
   const handleDisconnect = () => {

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState, useMemo } from "react";
 import { useGuildStore } from "@/stores/guild";
 import { useAuthStore } from "@/stores/auth";

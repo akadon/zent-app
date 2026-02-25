@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useGuildStore } from "@/stores/guild";

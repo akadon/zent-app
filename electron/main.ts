@@ -1,10 +1,8 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage } from "electron";
 import * as path from "path";
-import { spawn, ChildProcess } from "child_process";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let serverProcess: ChildProcess | null = null;
 
 const isDev = !app.isPackaged;
 const DEV_URL = "http://localhost:3000";
@@ -17,79 +15,12 @@ function getIconPath(): string {
   return path.join(process.resourcesPath, "icon.png");
 }
 
-function startNextServer(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (isDev) {
-      resolve(DEV_URL);
-      return;
-    }
-
-    const serverPath = path.join(
-      process.resourcesPath,
-      "standalone",
-      "server.js"
-    );
-
-    const url = `http://localhost:${PROD_PORT}`;
-    let settled = false;
-
-    serverProcess = spawn(process.execPath, [serverPath], {
-      env: {
-        ...process.env,
-        PORT: String(PROD_PORT),
-        HOSTNAME: "localhost",
-      },
-      stdio: "pipe",
-    });
-
-    serverProcess.stderr?.on("data", (data: Buffer) => {
-      console.error("Next.js server:", data.toString());
-    });
-
-    serverProcess.on("error", (err) => {
-      if (!settled) {
-        settled = true;
-        reject(err);
-      }
-    });
-
-    serverProcess.on("exit", (code) => {
-      if (!settled) {
-        settled = true;
-        reject(new Error(`Server process exited with code ${code}`));
-      }
-    });
-
-    // Health check loop: try fetching every 500ms, reject after 15s
-    const startTime = Date.now();
-    const interval = setInterval(async () => {
-      if (settled) {
-        clearInterval(interval);
-        return;
-      }
-
-      try {
-        const res = await fetch(url);
-        if (res.ok || res.status < 500) {
-          clearInterval(interval);
-          if (!settled) {
-            settled = true;
-            resolve(url);
-          }
-        }
-      } catch {
-        // Server not ready yet
-      }
-
-      if (Date.now() - startTime > 15000) {
-        clearInterval(interval);
-        if (!settled) {
-          settled = true;
-          reject(new Error("Server failed to start within 15 seconds"));
-        }
-      }
-    }, 500);
-  });
+function getAppUrl(): string {
+  if (isDev) {
+    return DEV_URL;
+  }
+  // In production, load the static build directly
+  return `file://${path.join(process.resourcesPath, "dist", "index.html")}`;
 }
 
 function createTray(): void {
@@ -148,7 +79,7 @@ async function createWindow(): Promise<void> {
     mainWindow = null;
   });
 
-  const url = await startNextServer();
+  const url = getAppUrl();
   mainWindow.loadURL(url);
 }
 
@@ -173,10 +104,6 @@ app.on("ready", async () => {
 
 app.on("before-quit", () => {
   (app as any).isQuitting = true;
-  if (serverProcess) {
-    serverProcess.kill();
-    serverProcess = null;
-  }
 });
 
 app.on("window-all-closed", () => {

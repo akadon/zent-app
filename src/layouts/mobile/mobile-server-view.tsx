@@ -1,5 +1,3 @@
-"use client";
-
 import { useUIStore } from "@/stores/ui";
 import { cn } from "@/lib/utils";
 import type { Guild } from "@yxc/types";

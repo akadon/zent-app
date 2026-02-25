@@ -66,7 +66,7 @@ self.addEventListener("fetch", (event) => {
 
   // Static assets (JS, CSS, images) - Stale While Revalidate
   if (
-    url.pathname.startsWith("/_next/") ||
+    url.pathname.startsWith("/assets/") ||
     url.pathname.endsWith(".js") ||
     url.pathname.endsWith(".css") ||
     url.pathname.endsWith(".png") ||

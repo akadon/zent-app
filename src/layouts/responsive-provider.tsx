@@ -1,5 +1,3 @@
-"use client";
-
 import { useIsMobile } from "@/shared/hooks/use-media-query";
 import { DesktopShell } from "./desktop/desktop-shell";
 import { MobileShell } from "./mobile/mobile-shell";

@@ -1,53 +1,61 @@
 /**
- * Voice gateway handler registration.
- * Handles VOICE_STATE_UPDATE and VOICE_SERVER_UPDATE events.
+ * Voice service — REST-based.
+ * Voice join/leave via REST API (no gateway).
+ * LiveKit Room handles real-time participant events directly.
  */
-import { gateway } from "@/gateway/client";
+import { api } from "@/lib/api";
 import { useGuildStore } from "@/stores/guild";
-import type { VoiceState } from "@yxc/types";
 
+export async function joinVoice(
+  guildId: string,
+  channelId: string,
+  options?: { username?: string; channelType?: number; selfMute?: boolean; selfDeaf?: boolean }
+) {
+  const result = await api.post<{
+    voiceState: any;
+    livekitToken: string;
+    livekitUrl: string;
+  }>(`/voice/${guildId}/${channelId}/join`, {
+    username: options?.username ?? "User",
+    channelType: options?.channelType ?? 2,
+    selfMute: options?.selfMute ?? false,
+    selfDeaf: options?.selfDeaf ?? false,
+  });
+
+  useGuildStore.setState({
+    voiceConnection: {
+      guildId,
+      channelId,
+      selfMute: options?.selfMute ?? false,
+      selfDeaf: options?.selfDeaf ?? false,
+      selfVideo: false,
+      selfStream: false,
+      livekitRoom: null,
+      livekitToken: result.livekitToken,
+    },
+  });
+
+  await useGuildStore.getState().connectToLiveKit(result.livekitToken, result.livekitUrl);
+
+  return result;
+}
+
+export async function leaveVoice(guildId: string) {
+  const conn = useGuildStore.getState().voiceConnection;
+  if (conn?.livekitRoom) {
+    conn.livekitRoom.disconnect();
+  }
+
+  try {
+    await api.post(`/voice/${guildId}/leave`);
+  } catch {
+    // Best effort
+  }
+
+  useGuildStore.setState({ voiceConnection: null, pendingVoiceServer: null });
+}
+
+// Kept for backward compat — now a no-op since voice events come through guild polling
 export function initVoiceHandlers(): () => void {
-  const unsubs: (() => void)[] = [];
-  const store = useGuildStore;
-
-  unsubs.push(
-    gateway.on("VOICE_SERVER_UPDATE", (data: unknown) => {
-      const { guildId, token, endpoint } = data as {
-        guildId: string; token: string; endpoint: string;
-      };
-      store.setState({ pendingVoiceServer: { guildId, token, endpoint } });
-      store.getState().connectToLiveKit(token, endpoint);
-    })
-  );
-
-  unsubs.push(
-    gateway.on("VOICE_STATE_UPDATE", (data: unknown) => {
-      const state = data as VoiceState;
-      store.setState((s) => {
-        const newMap = new Map(s.voiceStates);
-
-        // Remove user from any previous channel
-        for (const [chId, states] of newMap) {
-          const filtered = states.filter((vs) => vs.userId !== state.userId);
-          if (filtered.length !== states.length) {
-            if (filtered.length === 0) {
-              newMap.delete(chId);
-            } else {
-              newMap.set(chId, filtered);
-            }
-          }
-        }
-
-        // Add to new channel if not disconnecting
-        if (state.channelId) {
-          const existing = newMap.get(state.channelId) ?? [];
-          newMap.set(state.channelId, [...existing, state]);
-        }
-
-        return { voiceStates: newMap };
-      });
-    })
-  );
-
-  return () => unsubs.forEach((fn) => fn());
+  return () => {};
 }

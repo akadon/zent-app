@@ -1,5 +1,3 @@
-"use client";
-
 import { useUIStore } from "@/stores/ui";
 import { ChannelPanel } from "@/features/channels/components/channel-panel";
 import { cn } from "@/lib/utils";

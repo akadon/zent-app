@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useCallback, useRef } from "react";
 
 const DRAFT_KEY_PREFIX = "zent_draft_";

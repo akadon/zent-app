@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useRef, useEffect } from "react";
 import { gateway } from "@/gateway/client";
 import { cn } from "@/lib/utils";

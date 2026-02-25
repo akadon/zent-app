@@ -1,5 +1,3 @@
-"use client";
-
 import { Hash, MessageSquare, Users, Shield } from "lucide-react";
 
 interface EmptyStateProps {
