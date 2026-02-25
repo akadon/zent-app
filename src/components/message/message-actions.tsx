@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useRef, useEffect } from "react";
 import { Smile, Reply, Pin, MoreHorizontal, Trash2, Edit, Copy } from "lucide-react";
 import { api } from "@/lib/api";

@@ -1,5 +1,3 @@
-"use client";
-
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "@/stores/auth";
@@ -7,14 +5,12 @@ import { useUIStore } from "@/stores/ui";
 import { Toaster } from "sonner";
 import { QuickSwitcher } from "./layout/quick-switcher";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
-import { gateway } from "@/gateway/client";
 import { usePresenceStore } from "@/stores/presence";
+import { useGuildStore } from "@/stores/guild";
+import { api } from "@/lib/api";
+import { initGuildPolling } from "@/features/guilds/services/guild-service";
 
-// Feature services
-import { initMessageHandlers } from "@/features/messages/services/message-service";
-import { initGuildHandlers } from "@/features/guilds/services/guild-service";
-import { initRelationshipHandlers } from "@/features/friends/services/relationship-service";
-import { initVoiceHandlers } from "@/features/voice/services/voice-service";
+import type { Guild, Channel, Member } from "@yxc/types";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -31,41 +27,97 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   const loadSession = useAuthStore((s) => s.loadSession);
   const token = useAuthStore((s) => s.token);
-  const servicesInitialized = useRef(false);
+  const initialized = useRef(false);
 
   useEffect(() => {
     loadSession();
   }, [loadSession]);
 
-  // Initialize gateway + all feature services when authenticated
+  // Fetch initial state via REST + start polling (replaces gateway)
   useEffect(() => {
     if (!token) {
-      // Clear caches on logout to prevent data leak between accounts
-      if (servicesInitialized.current) {
+      if (initialized.current) {
         queryClient.clear();
         usePresenceStore.setState({ presences: new Map() });
+        useGuildStore.setState({
+          guilds: [],
+          channels: new Map(),
+          members: new Map(),
+          voiceStates: new Map(),
+          readStates: [],
+        });
       }
       return;
     }
-    if (servicesInitialized.current) return;
-    servicesInitialized.current = true;
+    if (initialized.current) return;
+    initialized.current = true;
 
-    gateway.connect(token);
+    let cancelled = false;
 
-    const cleanupPresence = usePresenceStore.getState().initPresenceHandlers();
-    const cleanupGuild = initGuildHandlers();
-    const cleanupMessages = initMessageHandlers(queryClient);
-    const cleanupRelationships = initRelationshipHandlers(queryClient);
-    const cleanupVoice = initVoiceHandlers();
+    (async () => {
+      try {
+        const state = await api.get<{
+          guilds: Guild[];
+          channels: Record<string, Channel[]>;
+          members: Record<string, Member[]>;
+        }>("/users/@me/state");
+
+        if (cancelled) return;
+
+        const channelsMap = new Map<string, Channel[]>();
+        const membersMap = new Map<string, Member[]>();
+
+        for (const [guildId, channels] of Object.entries(state.channels)) {
+          channelsMap.set(guildId, channels);
+        }
+        for (const [guildId, members] of Object.entries(state.members)) {
+          membersMap.set(guildId, members);
+        }
+
+        useGuildStore.setState({
+          guilds: state.guilds,
+          channels: channelsMap,
+          members: membersMap,
+        });
+
+        // Hydrate presence from member data
+        const presenceEntries: Array<{
+          userId: string;
+          data: { status: "online" | "idle" | "dnd" | "offline"; customStatus: { text?: string; emoji?: string } | null };
+        }> = [];
+
+        for (const members of Object.values(state.members)) {
+          for (const member of members) {
+            const user = member.user as any;
+            if (user?.status && user.status !== "offline") {
+              presenceEntries.push({
+                userId: user.id,
+                data: {
+                  status: user.status,
+                  customStatus: user.customStatus ?? null,
+                },
+              });
+            }
+          }
+        }
+        if (presenceEntries.length > 0) {
+          usePresenceStore.getState().bulkSetPresences(presenceEntries);
+        }
+
+        useUIStore.getState().setConnectionStatus("connected");
+      } catch (err) {
+        console.error("Failed to load initial state:", err);
+        useUIStore.getState().setConnectionStatus("disconnected");
+      }
+    })();
+
+    // Start guild polling for real-time updates
+    const stopPolling = initGuildPolling(queryClient);
 
     return () => {
-      cleanupPresence();
-      cleanupGuild();
-      cleanupMessages();
-      cleanupRelationships();
-      cleanupVoice();
-      gateway.disconnect();
-      servicesInitialized.current = false;
+      cancelled = true;
+      stopPolling();
+      initialized.current = false;
     };
   }, [token, queryClient]);
 

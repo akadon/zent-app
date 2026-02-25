@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import { Bell, BellOff, Volume2, VolumeX } from "lucide-react";
 import { api } from "@/lib/api";

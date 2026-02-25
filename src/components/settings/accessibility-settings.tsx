@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Eye, Type, Contrast, Zap, Move } from "lucide-react";

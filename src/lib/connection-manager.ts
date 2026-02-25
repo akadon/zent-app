@@ -18,16 +18,13 @@ class ConnectionManagerImpl {
   private listeners = new Set<() => void>();
 
   constructor() {
-    // Load saved connections from localStorage
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved) as ServerConnection[];
-          parsed.forEach(c => this.connections.set(c.serverId, { ...c, status: 'disconnected' }));
-        }
-      } catch {}
-    }
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as ServerConnection[];
+        parsed.forEach(c => this.connections.set(c.serverId, { ...c, status: 'disconnected' }));
+      }
+    } catch {}
   }
 
   addConnection(conn: ServerConnection) {
@@ -68,10 +65,8 @@ class ConnectionManagerImpl {
   }
 
   private save() {
-    if (typeof window !== 'undefined') {
-      const data = Array.from(this.connections.values()).map(({ status, ...rest }) => rest);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    }
+    const data = Array.from(this.connections.values()).map(({ status, ...rest }) => rest);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
 }
 

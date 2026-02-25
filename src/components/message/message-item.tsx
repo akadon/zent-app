@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { format, isToday, isYesterday } from "date-fns";
 import type { Message, Reaction } from "@yxc/types";

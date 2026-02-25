@@ -1,15 +1,12 @@
-"use client";
-
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense, lazy } from "react";
 import { PlusCircle, Smile, X, Paperclip, BarChart3 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useDraftPersistence } from "@/hooks/use-draft-persistence";
-import dynamic from "next/dynamic";
-const EmojiPicker = dynamic(() => import("./emoji-picker").then(m => m.EmojiPicker), { ssr: false });
+const LazyEmojiPicker = lazy(() => import("./emoji-picker").then(m => ({ default: m.EmojiPicker })));
 import { ReplyPreview } from "./reply-preview";
 import type { Message } from "@yxc/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 interface MessageInputProps {
   channelId: string;
@@ -322,16 +319,18 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
           </button>
           {showEmojiPicker && (
             <div className="absolute bottom-full right-0 mb-2">
-              <EmojiPicker
-                onSelect={(emoji) => {
-                  setContent((prev) => {
-                    const updated = prev + emoji;
-                    saveDraft(updated);
-                    return updated;
-                  });
-                }}
-                onClose={() => setShowEmojiPicker(false)}
-              />
+              <Suspense fallback={<div className="h-[350px] w-[350px] rounded-lg bg-background-secondary" />}>
+                <LazyEmojiPicker
+                  onSelect={(emoji) => {
+                    setContent((prev) => {
+                      const updated = prev + emoji;
+                      saveDraft(updated);
+                      return updated;
+                    });
+                  }}
+                  onClose={() => setShowEmojiPicker(false)}
+                />
+              </Suspense>
             </div>
           )}
         </div>

@@ -1,5 +1,3 @@
-"use client";
-
 import { MemberPanel } from "@/features/members/components/member-panel";
 import { cn } from "@/lib/utils";
 

@@ -1,10 +1,8 @@
-"use client";
-
 import { useQuery } from "@tanstack/react-query";
 import { Hash, Users, ExternalLink, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 interface PublicMessage {
   id: string;

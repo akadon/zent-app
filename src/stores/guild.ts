@@ -8,7 +8,7 @@ import {
   type RemoteParticipant,
 } from "livekit-client";
 import type { Guild, Channel, Member, VoiceState } from "@yxc/types";
-import { gateway } from "@/gateway/client";
+import { api } from "@/lib/api";
 
 interface PendingVoiceServer {
   guildId: string;
@@ -256,7 +256,6 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     if (!conn) return;
     const newMute = !conn.selfMute;
     set({ voiceConnection: { ...conn, selfMute: newMute } });
-    gateway.updateVoiceState(conn.guildId, conn.channelId, newMute, conn.selfDeaf);
     if (conn.livekitRoom) {
       conn.livekitRoom.localParticipant.setMicrophoneEnabled(!newMute);
     }
@@ -268,7 +267,6 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     const newDeaf = !conn.selfDeaf;
     const newMute = newDeaf ? true : conn.selfMute;
     set({ voiceConnection: { ...conn, selfDeaf: newDeaf, selfMute: newMute } });
-    gateway.updateVoiceState(conn.guildId, conn.channelId, newMute, newDeaf);
     if (conn.livekitRoom) {
       conn.livekitRoom.localParticipant.setMicrophoneEnabled(!newMute);
       for (const p of conn.livekitRoom.remoteParticipants.values()) {
@@ -301,7 +299,7 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     const conn = get().voiceConnection;
     if (conn) {
       if (conn.livekitRoom) conn.livekitRoom.disconnect();
-      gateway.updateVoiceState(conn.guildId, null);
+      api.post(`/voice/${conn.guildId}/leave`).catch(() => {});
     }
     set({ voiceConnection: null, pendingVoiceServer: null });
   },

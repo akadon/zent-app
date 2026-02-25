@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import { X, Download, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
 

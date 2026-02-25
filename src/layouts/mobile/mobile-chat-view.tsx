@@ -1,5 +1,3 @@
-"use client";
-
 import { MessageArea } from "@/components/message/message-area";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, Users } from "lucide-react";

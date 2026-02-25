@@ -1,5 +1,3 @@
-"use client";
-
 import { useUIStore } from "@/stores/ui";
 import { DockGuildIcon } from "@/features/guilds/components/guild-dock-icon";
 import { cn } from "@/lib/utils";

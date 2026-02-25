@@ -1,0 +1,9 @@
+[
+  {
+    "domain": "3aka.com",
+    "name": "Zent",
+    "apiUrl": "https://3aka.com/api",
+    "wsUrl": "wss://3aka.com",
+    "status": "online"
+  }
+]
