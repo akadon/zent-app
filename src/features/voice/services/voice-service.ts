@@ -55,7 +55,7 @@ export async function leaveVoice(guildId: string) {
   useGuildStore.setState({ voiceConnection: null, pendingVoiceServer: null });
 }
 
-// Kept for backward compat — now a no-op since voice events come through guild polling
+// Kept for backward compat — voice state events handled in guild-service.ts via gateway
 export function initVoiceHandlers(): () => void {
   return () => {};
 }

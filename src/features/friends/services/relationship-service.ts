@@ -1,7 +1,6 @@
 /**
- * Relationship service — no-op.
- * Relationship events are now handled by guild polling service (guild-service.ts).
- * This file kept for backward compatibility with any imports.
+ * Relationship service — no-op stub.
+ * Relationship events handled centrally in guild-service.ts via gateway.
  */
 export function initRelationshipHandlers(): () => void {
   return () => {};

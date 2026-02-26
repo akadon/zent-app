@@ -2,12 +2,6 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 class ApiClient {
   private token: string | null = null;
-  private _pollInterval = 5000;
-
-  /** Server-recommended poll interval in ms */
-  get pollInterval() {
-    return this._pollInterval;
-  }
 
   setToken(token: string | null) {
     this.token = token;
@@ -39,13 +33,6 @@ class ApiClient {
       ...options,
       headers,
     });
-
-    // Track server-recommended poll interval
-    const pollHeader = res.headers.get("X-Poll-Interval");
-    if (pollHeader) {
-      const val = parseInt(pollHeader, 10);
-      if (val >= 1000 && val <= 30000) this._pollInterval = val;
-    }
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ message: "Request failed" }));

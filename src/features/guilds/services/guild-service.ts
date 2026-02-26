@@ -1,29 +1,37 @@
 /**
- * Guild + user polling service.
- * Polls event logs for changes, applies to stores + React Query cache.
- * Replaces gateway push model.
- *
- * Guild polls: adaptive 3-15s, CF-cacheable per guild.
- * User polls: 30s (conditional — only when DM tab active or every 6th cycle as fallback).
+ * Guild gateway event handler.
+ * Registers Socket.IO gateway listeners for guild/user events.
+ * Applies incoming events to Zustand stores + React Query cache.
  */
-import { api } from "@/lib/api";
+import { gateway } from "@/gateway/client";
 import { useGuildStore } from "@/stores/guild";
-import { useUIStore } from "@/stores/ui";
 import type { QueryClient } from "@tanstack/react-query";
 import type { Guild, Channel, Member, Message, VoiceState } from "@yxc/types";
 
-let lastGuildPollTime = Date.now();
-let lastUserPollTime = Date.now();
-let pollCycle = 0;
+const EVENT_TYPES = [
+  "GUILD_CREATE", "GUILD_UPDATE", "GUILD_DELETE",
+  "CHANNEL_CREATE", "CHANNEL_UPDATE", "CHANNEL_DELETE",
+  "GUILD_MEMBER_ADD", "GUILD_MEMBER_REMOVE", "GUILD_MEMBER_UPDATE",
+  "MESSAGE_CREATE", "MESSAGE_UPDATE", "MESSAGE_DELETE", "MESSAGE_DELETE_BULK",
+  "MESSAGE_REACTION_ADD", "MESSAGE_REACTION_REMOVE", "MESSAGE_REACTION_REMOVE_ALL",
+  "CHANNEL_PINS_UPDATE", "MESSAGE_POLL_VOTE_ADD", "MESSAGE_POLL_VOTE_REMOVE",
+  "VOICE_STATE_UPDATE", "VOICE_SERVER_UPDATE",
+  "RELATIONSHIP_ADD", "RELATIONSHIP_REMOVE",
+  "SESSION_INVALIDATE",
+  "GUILD_STICKERS_UPDATE", "GUILD_EMOJIS_UPDATE",
+  "GUILD_ROLE_CREATE", "GUILD_ROLE_UPDATE", "GUILD_ROLE_DELETE",
+  "GUILD_BAN_ADD", "GUILD_BAN_REMOVE",
+  "INVITE_CREATE", "INVITE_DELETE",
+  "WEBHOOKS_UPDATE",
+  "THREAD_CREATE", "THREAD_UPDATE", "THREAD_DELETE",
+  "GUILD_AUDIT_LOG_ENTRY_CREATE",
+  "AUTO_MODERATION_RULE_UPDATE", "AUTO_MODERATION_ACTION_EXECUTION",
+  "GUILD_SCHEDULED_EVENT_CREATE", "GUILD_SCHEDULED_EVENT_UPDATE", "GUILD_SCHEDULED_EVENT_DELETE",
+  "POLL_VOTE_ADD", "POLL_VOTE_REMOVE", "POLL_END",
+] as const;
 
-interface PollEvent {
-  event: string;
-  data: any;
-}
-
-function applyEvent(event: PollEvent, queryClient: QueryClient) {
+function handleEvent(type: string, data: any, queryClient: QueryClient) {
   const store = useGuildStore;
-  const { event: type, data } = event;
 
   switch (type) {
     case "GUILD_CREATE":
@@ -166,10 +174,6 @@ function applyEvent(event: PollEvent, queryClient: QueryClient) {
       });
       break;
     }
-    case "RELATIONSHIP_ADD":
-    case "RELATIONSHIP_REMOVE":
-      queryClient.invalidateQueries({ queryKey: ["relationships"] });
-      break;
     case "VOICE_SERVER_UPDATE":
       if (data.token && data.endpoint) {
         store.getState().setVoiceConnection({
@@ -180,12 +184,15 @@ function applyEvent(event: PollEvent, queryClient: QueryClient) {
         });
       }
       break;
+    case "RELATIONSHIP_ADD":
+    case "RELATIONSHIP_REMOVE":
+      queryClient.invalidateQueries({ queryKey: ["relationships"] });
+      break;
     case "SESSION_INVALIDATE":
       window.location.href = "/";
       break;
     case "GUILD_STICKERS_UPDATE":
     case "GUILD_EMOJIS_UPDATE":
-      // Refresh guild data
       queryClient.invalidateQueries({ queryKey: ["guild", data.guildId] });
       break;
     case "GUILD_ROLE_CREATE":
@@ -234,79 +241,21 @@ function applyEvent(event: PollEvent, queryClient: QueryClient) {
 }
 
 /**
- * Start polling guilds + user events.
+ * Register gateway event handlers.
  * Called once from providers.tsx on auth.
  * Returns cleanup function.
  */
-export function initGuildPolling(queryClient: QueryClient): () => void {
-  let running = true;
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+export function initGuildService(queryClient: QueryClient): () => void {
+  const cleanups: (() => void)[] = [];
 
-  async function poll() {
-    if (!running) return;
-
-    const guilds = useGuildStore.getState().guilds;
-    pollCycle++;
-
-    try {
-      // Guild event polls (CF-cached per guild)
-      const guildPolls = guilds.map((g) =>
-        api.get<{ events: PollEvent[]; serverTime: number }>(
-          `/guilds/${g.id}/poll?since=${lastGuildPollTime}`
-        )
-      );
-
-      // User poll: only when DM view active OR every 6th cycle as fallback (~30s at 5s interval)
-      const inDMView = useUIStore.getState().selectedGuildId === null;
-      const shouldPollUser = inDMView || pollCycle % 6 === 0;
-
-      const userPoll = shouldPollUser
-        ? api.get<{ events: PollEvent[]; serverTime: number }>(
-            `/users/@me/poll?since=${lastUserPollTime}`
-          ).catch(() => null)
-        : Promise.resolve(null);
-
-      const [guildResults, userResult] = await Promise.all([
-        Promise.allSettled(guildPolls),
-        userPoll,
-      ]);
-
-      let maxGuildTime = lastGuildPollTime;
-      for (const result of guildResults) {
-        if (result.status === "fulfilled" && result.value.events.length > 0) {
-          for (const event of result.value.events) {
-            applyEvent(event, queryClient);
-          }
-          if (result.value.serverTime > maxGuildTime) {
-            maxGuildTime = result.value.serverTime;
-          }
-        }
-      }
-      lastGuildPollTime = maxGuildTime;
-
-      if (userResult && userResult.events.length > 0) {
-        for (const event of userResult.events) {
-          applyEvent(event, queryClient);
-        }
-        if (userResult.serverTime > lastUserPollTime) {
-          lastUserPollTime = userResult.serverTime;
-        }
-      }
-    } catch {
-      // Network error — retry next cycle
-    }
-
-    if (running) {
-      const base = api.pollInterval;
-      const interval = document.hidden ? base * 5 : base;
-      timeoutId = setTimeout(poll, interval);
-    }
+  for (const eventType of EVENT_TYPES) {
+    const cleanup = gateway.on(eventType, (data) => {
+      handleEvent(eventType, data, queryClient);
+    });
+    cleanups.push(cleanup);
   }
 
-  timeoutId = setTimeout(poll, 2000);
-
   return () => {
-    running = false;
-    if (timeoutId) clearTimeout(timeoutId);
+    for (const cleanup of cleanups) cleanup();
   };
 }
