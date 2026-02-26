@@ -1,35 +1,36 @@
 /**
- * Socket.IO gateway client for real-time events.
+ * Native WebSocket gateway client for real-time events.
  *
  * Reconnection: jittered exponential backoff (1-2s base, 30s max).
  * Session resume: sends op 6 RESUME with sessionId + lastSequence on reconnect.
+ * ~1KB per connection vs Socket.IO's ~15-20KB.
  */
-import { io, Socket } from "socket.io-client";
 
 type EventHandler = (data: unknown) => void;
 
 export class GatewayClient {
-  private socket: Socket | null = null;
+  private ws: WebSocket | null = null;
   private handlers = new Map<string, Set<EventHandler>>();
   private token: string | null = null;
   private sessionId: string | null = null;
   private lastSequence: number = 0;
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
   connect(token: string) {
     this.token = token;
-    if (this.socket?.connected) return;
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+    this.createSocket();
+  }
 
-    const wsUrl = import.meta.env.VITE_WS_URL || window.location.origin;
-    this.socket = io(wsUrl, {
-      path: "/gateway",
-      transports: ["websocket"],
-      autoConnect: false,
-      reconnection: false, // we handle reconnection ourselves for jitter + resume
-    });
+  private createSocket() {
+    const base = import.meta.env.VITE_WS_URL || window.location.origin;
+    const wsUrl = base.replace(/^http/, "ws") + "/gateway";
 
-    this.socket.on("connect", () => {
+    this.ws = new WebSocket(wsUrl);
+
+    this.ws.onopen = () => {
       const wasReconnect = this.reconnectAttempt > 0 || this.sessionId !== null;
       this.reconnectAttempt = 0;
       if (wasReconnect) {
@@ -37,67 +38,68 @@ export class GatewayClient {
       }
       if (this.sessionId) {
         // Resume existing session
-        this.socket?.emit("message", {
-          op: 6,
-          d: { token: this.token, sessionId: this.sessionId, seq: this.lastSequence },
-        });
+        this.send({ op: 6, d: { token: this.token, sessionId: this.sessionId, seq: this.lastSequence } });
       } else {
         // Fresh identify
-        this.socket?.emit("message", {
-          op: 2,
-          d: { token: this.token, intents: 0x1FFFF },
-        });
+        this.send({ op: 2, d: { token: this.token, intents: 0x1FFFF } });
       }
-    });
+    };
 
-    this.socket.on("message", (payload: { op: number; t?: string; s?: number; d?: any }) => {
-      // Track sequence number for resume
-      if (payload.s !== undefined && payload.s !== null) {
-        this.lastSequence = payload.s;
-      }
+    this.ws.onmessage = (event: MessageEvent) => {
+      try {
+        const payload = JSON.parse(event.data) as { op: number; t?: string; s?: number; d?: any };
 
-      // op 0 = DISPATCH
-      if (payload.op === 0 && payload.t) {
-        const handlers = this.handlers.get(payload.t);
-        if (handlers) {
-          for (const handler of handlers) {
-            handler(payload.d);
+        // Track sequence number for resume
+        if (payload.s !== undefined && payload.s !== null) {
+          this.lastSequence = payload.s;
+        }
+
+        // op 0 = DISPATCH — route to event handlers
+        if (payload.op === 0 && payload.t) {
+          const handlers = this.handlers.get(payload.t);
+          if (handlers) {
+            for (const handler of handlers) {
+              handler(payload.d);
+            }
           }
         }
-      }
-      // op 1 = HELLO — start heartbeat
-      if (payload.op === 1 && payload.d?.heartbeatInterval) {
-        this.startHeartbeat(payload.d.heartbeatInterval);
-      }
-      // op 7 = RECONNECT — server requests reconnect
-      if (payload.op === 7) {
-        this.socket?.disconnect();
-      }
-      // op 9 = INVALID_SESSION — must re-identify
-      if (payload.op === 9) {
-        this.sessionId = null;
-        this.lastSequence = 0;
-        this.socket?.disconnect();
-      }
-      // op 10 = RESUMED — session successfully resumed
-      if (payload.op === 10) {
-        // resume succeeded, nothing extra needed
-      }
-      // Store sessionId from READY
-      if (payload.op === 0 && payload.t === "READY" && payload.d?.sessionId) {
-        this.sessionId = payload.d.sessionId;
-      }
-    });
+        // op 10 = HELLO — start heartbeat
+        if (payload.op === 10 && payload.d?.heartbeatInterval) {
+          this.startHeartbeat(payload.d.heartbeatInterval);
+        }
+        // op 7 = RECONNECT — server requests reconnect
+        if (payload.op === 7) {
+          this.ws?.close();
+        }
+        // op 9 = INVALID_SESSION — must re-identify
+        if (payload.op === 9) {
+          this.sessionId = null;
+          this.lastSequence = 0;
+          this.ws?.close();
+        }
+        // op 11 = HEARTBEAT_ACK — connection alive
+        // (no action needed, heartbeat timer continues)
 
-    this.socket.on("disconnect", () => {
+        // Store sessionId from READY event
+        if (payload.op === 0 && payload.t === "READY" && payload.d?.sessionId) {
+          this.sessionId = payload.d.sessionId;
+        }
+      } catch {
+        // Ignore malformed messages
+      }
+    };
+
+    this.ws.onclose = () => {
       this.stopHeartbeat();
       if (this.token) {
         this.emit("__disconnect", null);
         this.scheduleReconnect();
       }
-    });
+    };
 
-    this.socket.connect();
+    this.ws.onerror = () => {
+      // Error always precedes close; cleanup happens in onclose
+    };
   }
 
   disconnect() {
@@ -106,8 +108,12 @@ export class GatewayClient {
     this.sessionId = null;
     this.lastSequence = 0;
     this.reconnectAttempt = 0;
-    this.socket?.disconnect();
-    this.socket = null;
+    this.token = null;
+    if (this.ws) {
+      this.ws.onclose = null; // Prevent reconnect on intentional disconnect
+      this.ws.close();
+      this.ws = null;
+    }
   }
 
   on(event: string, handler: EventHandler) {
@@ -130,34 +136,34 @@ export class GatewayClient {
     }
   }
 
+  private send(data: unknown) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data));
+    }
+  }
+
   updatePresence(status: string, customStatus?: any) {
-    this.socket?.emit("message", {
-      op: 3,
-      d: { status, customStatus, activities: [] },
-    });
+    this.send({ op: 3, d: { status, customStatus, activities: [] } });
   }
 
   updateVoiceState(guildId: string, channelId: string | null, selfMute?: boolean, selfDeaf?: boolean) {
-    this.socket?.emit("message", {
-      op: 4,
-      d: { guildId, channelId, selfMute: selfMute ?? false, selfDeaf: selfDeaf ?? false },
-    });
+    this.send({ op: 4, d: { guildId, channelId, selfMute: selfMute ?? false, selfDeaf: selfDeaf ?? false } });
   }
 
   requestGuildMembers(guildId: string, query?: string, userIds?: string[]) {
-    this.socket?.emit("message", {
-      op: 8,
-      d: { guildId, query, userIds, limit: 100 },
-    });
+    this.send({ op: 8, d: { guildId, query, userIds, limit: 100 } });
   }
-
-  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
   private startHeartbeat(interval: number) {
     this.stopHeartbeat();
-    this.heartbeatInterval = setInterval(() => {
-      this.socket?.emit("message", { op: 11, d: null });
-    }, interval);
+    // Add jitter to first heartbeat to avoid thundering herd
+    const jitter = Math.random() * interval;
+    setTimeout(() => {
+      this.send({ op: 1, d: null }); // HEARTBEAT opcode = 1
+      this.heartbeatInterval = setInterval(() => {
+        this.send({ op: 1, d: null });
+      }, interval);
+    }, jitter);
   }
 
   private stopHeartbeat() {
@@ -181,8 +187,8 @@ export class GatewayClient {
     this.reconnectAttempt++;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      if (this.token && !this.socket?.connected) {
-        this.socket?.connect();
+      if (this.token) {
+        this.createSocket();
       }
     }, delay);
   }
