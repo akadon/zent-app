@@ -20,7 +20,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 30_000,
-            retry: 1,
+            gcTime: 5 * 60_000, // garbage collect unused queries after 5min
+            retry: (failureCount, error) => {
+              // Don't retry 4xx errors except rate limits
+              if (error instanceof Error && "status" in error) {
+                const status = (error as any).status as number;
+                if (status === 429) return failureCount < 3;
+                if (status >= 400 && status < 500) return false;
+              }
+              return failureCount < 2;
+            },
+            retryDelay: (attempt) => Math.min(1000 * Math.pow(2, attempt), 15_000),
           },
         },
       })
@@ -94,6 +104,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
       useUIStore.getState().setConnectionStatus("connected");
     });
 
+    // Track disconnect/reconnecting state
+    const cleanupDisconnect = gateway.on("__disconnect", () => {
+      useUIStore.getState().setConnectionStatus("reconnecting");
+    });
+    const cleanupReconnected = gateway.on("__reconnected", () => {
+      useUIStore.getState().setConnectionStatus("connected");
+    });
+
     // Register all event handlers
     const stopGuildService = initGuildService(queryClient);
 
@@ -102,6 +120,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     return () => {
       cleanupReady();
+      cleanupDisconnect();
+      cleanupReconnected();
       stopGuildService();
       gateway.disconnect();
       initialized.current = false;

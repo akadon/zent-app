@@ -17,6 +17,9 @@ interface PresenceState {
 
 const defaultPresence: PresenceData = { status: "offline", customStatus: null };
 
+// Cap presence entries to prevent unbounded memory growth in large servers
+const MAX_PRESENCES = 50_000;
+
 export const usePresenceStore = create<PresenceState>((set, get) => ({
   presences: new Map(),
 
@@ -37,7 +40,20 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
     set((s) => {
       const newMap = new Map(s.presences);
       for (const { userId, data } of entries) {
-        newMap.set(userId, data);
+        if (data.status === "offline") {
+          newMap.delete(userId);
+        } else {
+          newMap.set(userId, data);
+        }
+      }
+      // Evict oldest entries if over cap
+      if (newMap.size > MAX_PRESENCES) {
+        const it = newMap.keys();
+        let excess = newMap.size - MAX_PRESENCES;
+        while (excess-- > 0) {
+          const key = it.next().value;
+          if (key !== undefined) newMap.delete(key);
+        }
       }
       return { presences: newMap };
     }),

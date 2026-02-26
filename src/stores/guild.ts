@@ -151,12 +151,21 @@ export const useGuildStore = create<GuildState>((set, get) => ({
       const newMap = new Map(s.typingUsers);
       if (!newMap.has(channelId)) newMap.set(channelId, new Map());
       newMap.get(channelId)!.set(userId, Date.now());
+      // Prune stale typing indicators (>10s old)
+      const now = Date.now();
+      for (const [chId, users] of newMap) {
+        for (const [uid, ts] of users) {
+          if (now - ts > 10_000) users.delete(uid);
+        }
+        if (users.size === 0) newMap.delete(chId);
+      }
       return { typingUsers: newMap };
     }),
   clearTyping: (channelId, userId) =>
     set((s) => {
       const newMap = new Map(s.typingUsers);
       newMap.get(channelId)?.delete(userId);
+      if (newMap.get(channelId)?.size === 0) newMap.delete(channelId);
       return { typingUsers: newMap };
     }),
   setReadStates: (states) => set({ readStates: states }),
