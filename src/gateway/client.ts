@@ -1,5 +1,8 @@
 /**
  * Socket.IO gateway client for real-time events.
+ *
+ * Reconnection: jittered exponential backoff (1-2s base, 30s max).
+ * Session resume: sends op 6 RESUME with sessionId + lastSequence on reconnect.
  */
 import { io, Socket } from "socket.io-client";
 
@@ -9,6 +12,10 @@ export class GatewayClient {
   private socket: Socket | null = null;
   private handlers = new Map<string, Set<EventHandler>>();
   private token: string | null = null;
+  private sessionId: string | null = null;
+  private lastSequence: number = 0;
+  private reconnectAttempt = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   connect(token: string) {
     this.token = token;
@@ -19,17 +26,36 @@ export class GatewayClient {
       path: "/gateway",
       transports: ["websocket"],
       autoConnect: false,
+      reconnection: false, // we handle reconnection ourselves for jitter + resume
     });
 
     this.socket.on("connect", () => {
-      // Send IDENTIFY
-      this.socket?.emit("message", {
-        op: 2,
-        d: { token: this.token, intents: 0x1FFFF },
-      });
+      const wasReconnect = this.reconnectAttempt > 0 || this.sessionId !== null;
+      this.reconnectAttempt = 0;
+      if (wasReconnect) {
+        this.emit("__reconnected", null);
+      }
+      if (this.sessionId) {
+        // Resume existing session
+        this.socket?.emit("message", {
+          op: 6,
+          d: { token: this.token, sessionId: this.sessionId, seq: this.lastSequence },
+        });
+      } else {
+        // Fresh identify
+        this.socket?.emit("message", {
+          op: 2,
+          d: { token: this.token, intents: 0x1FFFF },
+        });
+      }
     });
 
-    this.socket.on("message", (payload: { op: number; t?: string; d?: any }) => {
+    this.socket.on("message", (payload: { op: number; t?: string; s?: number; d?: any }) => {
+      // Track sequence number for resume
+      if (payload.s !== undefined && payload.s !== null) {
+        this.lastSequence = payload.s;
+      }
+
       // op 0 = DISPATCH
       if (payload.op === 0 && payload.t) {
         const handlers = this.handlers.get(payload.t);
@@ -43,10 +69,32 @@ export class GatewayClient {
       if (payload.op === 1 && payload.d?.heartbeatInterval) {
         this.startHeartbeat(payload.d.heartbeatInterval);
       }
+      // op 7 = RECONNECT — server requests reconnect
+      if (payload.op === 7) {
+        this.socket?.disconnect();
+      }
+      // op 9 = INVALID_SESSION — must re-identify
+      if (payload.op === 9) {
+        this.sessionId = null;
+        this.lastSequence = 0;
+        this.socket?.disconnect();
+      }
+      // op 10 = RESUMED — session successfully resumed
+      if (payload.op === 10) {
+        // resume succeeded, nothing extra needed
+      }
+      // Store sessionId from READY
+      if (payload.op === 0 && payload.t === "READY" && payload.d?.sessionId) {
+        this.sessionId = payload.d.sessionId;
+      }
     });
 
     this.socket.on("disconnect", () => {
       this.stopHeartbeat();
+      if (this.token) {
+        this.emit("__disconnect", null);
+        this.scheduleReconnect();
+      }
     });
 
     this.socket.connect();
@@ -54,6 +102,10 @@ export class GatewayClient {
 
   disconnect() {
     this.stopHeartbeat();
+    this.cancelReconnect();
+    this.sessionId = null;
+    this.lastSequence = 0;
+    this.reconnectAttempt = 0;
     this.socket?.disconnect();
     this.socket = null;
   }
@@ -68,6 +120,14 @@ export class GatewayClient {
 
   off(event: string, handler: EventHandler) {
     this.handlers.get(event)?.delete(handler);
+  }
+
+  /** Fire internal event to registered handlers */
+  private emit(event: string, data: unknown) {
+    const handlers = this.handlers.get(event);
+    if (handlers) {
+      for (const handler of handlers) handler(data);
+    }
   }
 
   updatePresence(status: string, customStatus?: any) {
@@ -104,6 +164,33 @@ export class GatewayClient {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;
+    }
+  }
+
+  /** Jittered exponential backoff: base 1-2s, max 30s, full jitter */
+  private getReconnectDelay(): number {
+    const base = 1000;
+    const max = 30_000;
+    const exp = Math.min(max, base * Math.pow(2, this.reconnectAttempt));
+    return Math.random() * exp; // full jitter
+  }
+
+  private scheduleReconnect() {
+    this.cancelReconnect();
+    const delay = this.getReconnectDelay();
+    this.reconnectAttempt++;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.token && !this.socket?.connected) {
+        this.socket?.connect();
+      }
+    }, delay);
+  }
+
+  private cancelReconnect() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
   }
 }
