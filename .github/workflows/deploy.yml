@@ -23,8 +23,9 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_URL: https://3aka.com/api
-          VITE_WS_URL: wss://3aka.com
+          VITE_API_URL: https://api.3aka.com/api
+          VITE_WS_URL: wss://api.3aka.com
+          VITE_CDN_URL: https://api.3aka.com
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
