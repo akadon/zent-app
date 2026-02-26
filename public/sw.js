@@ -125,7 +125,8 @@ async function staleWhileRevalidate(request, cacheName) {
   const fetchPromise = fetch(request)
     .then((response) => {
       if (response.ok) {
-        caches.open(cacheName).then((cache) => cache.put(request, response.clone()));
+        const cloned = response.clone();
+        caches.open(cacheName).then((cache) => cache.put(request, cloned));
       }
       return response;
     })
