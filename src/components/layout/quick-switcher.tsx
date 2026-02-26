@@ -149,6 +149,7 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
           <input
             ref={inputRef}
             type="text"
+            aria-label="Quick switcher"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}

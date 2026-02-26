@@ -47,10 +47,11 @@ export function CreateGuildModal() {
             if (name.trim()) createGuild.mutate({ name: name.trim() });
           }}
         >
-          <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+          <label htmlFor="guild-name" className="mb-2 block text-xs font-bold uppercase text-header-secondary">
             Server Name
           </label>
           <input
+            id="guild-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}

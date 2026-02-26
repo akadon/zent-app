@@ -110,6 +110,7 @@ export function EventList({ guildId }: EventListProps) {
         <div className="rounded-lg bg-zinc-800 p-4 space-y-3 border border-zinc-700">
           <input
             type="text"
+            aria-label="Event title"
             placeholder="Event title"
             value={formData.title}
             onChange={(e) =>
@@ -118,6 +119,7 @@ export function EventList({ guildId }: EventListProps) {
             className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm text-zinc-100 border border-zinc-700 focus:border-indigo-500 focus:outline-none"
           />
           <textarea
+            aria-label="Event description"
             placeholder="Description (optional)"
             value={formData.description}
             onChange={(e) =>
@@ -128,10 +130,11 @@ export function EventList({ guildId }: EventListProps) {
           />
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-zinc-400 mb-1">
+              <label htmlFor="event-start" className="block text-xs text-zinc-400 mb-1">
                 Start Time
               </label>
               <input
+                id="event-start"
                 type="datetime-local"
                 value={formData.startTime}
                 onChange={(e) =>
@@ -141,10 +144,11 @@ export function EventList({ guildId }: EventListProps) {
               />
             </div>
             <div>
-              <label className="block text-xs text-zinc-400 mb-1">
+              <label htmlFor="event-end" className="block text-xs text-zinc-400 mb-1">
                 End Time (optional)
               </label>
               <input
+                id="event-end"
                 type="datetime-local"
                 value={formData.endTime}
                 onChange={(e) =>
@@ -156,6 +160,7 @@ export function EventList({ guildId }: EventListProps) {
           </div>
           <input
             type="text"
+            aria-label="Event location"
             placeholder="Location (optional)"
             value={formData.location}
             onChange={(e) =>

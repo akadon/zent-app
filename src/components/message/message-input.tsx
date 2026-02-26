@@ -171,6 +171,7 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
             </button>
           </div>
           <input
+            aria-label="Poll question"
             value={pollQuestion}
             onChange={(e) => setPollQuestion(e.target.value)}
             placeholder="Ask a question..."
@@ -185,6 +186,7 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
                   next[i] = e.target.value;
                   setPollOptions(next);
                 }}
+                aria-label={`Poll option ${i + 1}`}
                 placeholder={`Option ${i + 1}`}
                 className="flex-1 rounded-md bg-background-tertiary px-3 py-1.5 text-sm text-text-normal placeholder-text-muted outline-none focus:ring-1 focus:ring-brand/30"
               />
@@ -298,6 +300,7 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
 
         <textarea
           ref={textareaRef}
+          aria-label="Message"
           value={content}
           onChange={(e) => {
             setContent(e.target.value);

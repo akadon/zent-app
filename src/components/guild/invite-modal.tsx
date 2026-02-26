@@ -64,12 +64,13 @@ export function InviteModal() {
           </button>
         </div>
 
-        <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+        <label htmlFor="invite-url" className="mb-2 block text-xs font-bold uppercase text-header-secondary">
           Send an invite link to a friend
         </label>
 
         <div className="flex items-center gap-2">
           <input
+            id="invite-url"
             type="text"
             readOnly
             value={inviteUrl ?? "Creating invite..."}
