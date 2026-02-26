@@ -115,7 +115,7 @@ export function AuthPage() {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-background-tertiary">
+    <main className="flex h-screen items-center justify-center bg-background-tertiary">
       <div className="w-full max-w-[480px] rounded-md bg-background-primary p-8 shadow-lg">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold text-header-primary">
@@ -136,10 +136,11 @@ export function AuthPage() {
           {/* MFA mode */}
           {mode === "mfa" && (
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+              <label htmlFor="mfa-code" className="mb-2 block text-xs font-bold uppercase text-header-secondary">
                 Authentication Code
               </label>
               <input
+                id="mfa-code"
                 type="text"
                 inputMode="numeric"
                 required
@@ -157,10 +158,11 @@ export function AuthPage() {
           {mode === "recovery" && (
             <>
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+                <label htmlFor="recovery-email" className="mb-2 block text-xs font-bold uppercase text-header-secondary">
                   Email
                 </label>
                 <input
+                  id="recovery-email"
                   type="email"
                   required
                   value={email}
@@ -169,10 +171,11 @@ export function AuthPage() {
                 />
               </div>
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+                <label htmlFor="recovery-key" className="mb-2 block text-xs font-bold uppercase text-header-secondary">
                   Recovery Key
                 </label>
                 <input
+                  id="recovery-key"
                   type="text"
                   required
                   value={recoveryKey}
@@ -188,10 +191,11 @@ export function AuthPage() {
           {(mode === "login" || mode === "register") && (
             <>
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+                <label htmlFor="auth-email" className="mb-2 block text-xs font-bold uppercase text-header-secondary">
                   Email
                 </label>
                 <input
+                  id="auth-email"
                   type="email"
                   required
                   value={email}
@@ -202,10 +206,11 @@ export function AuthPage() {
 
               {mode === "register" && (
                 <div>
-                  <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+                  <label htmlFor="auth-username" className="mb-2 block text-xs font-bold uppercase text-header-secondary">
                     Username
                   </label>
                   <input
+                    id="auth-username"
                     type="text"
                     required
                     value={username}
@@ -216,10 +221,11 @@ export function AuthPage() {
               )}
 
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+                <label htmlFor="auth-password" className="mb-2 block text-xs font-bold uppercase text-header-secondary">
                   Password
                 </label>
                 <input
+                  id="auth-password"
                   type="password"
                   required
                   value={password}
@@ -311,6 +317,6 @@ export function AuthPage() {
           )}
         </p>
       </div>
-    </div>
+    </main>
   );
 }

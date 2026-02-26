@@ -43,6 +43,7 @@ export function InlineEdit({ content, onSave, onCancel }: InlineEditProps) {
     <div className="mt-1">
       <textarea
         ref={textareaRef}
+        aria-label="Edit message"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}

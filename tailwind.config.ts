@@ -29,13 +29,13 @@ const config: Config = {
         // Text colors
         text: {
           normal: "#b8d4e8",       // Light blue-gray
-          muted: "#5a7a95",        // Muted blue
+          muted: "#7a9bb5",        // Muted blue (WCAG AA compliant)
           link: "#38bdf8",         // Sky blue links
           inverse: "#0a0f1a",
         },
         // Channel colors
         channel: {
-          default: "#5a7a95",
+          default: "#7a9bb5",
           hover: "#9fc5e0",
           selected: "#e8f4fc",
         },
@@ -84,7 +84,7 @@ const config: Config = {
           online: "#00f5c4",       // Bright mint
           idle: "#fbbf24",
           dnd: "#f87171",
-          offline: "#5a7a95",
+          offline: "#7a9bb5",
           streaming: "#c084fc",
         },
       },

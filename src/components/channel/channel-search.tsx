@@ -31,6 +31,7 @@ export function ChannelSearch({ onSearch }: ChannelSearchProps) {
       <Search size={14} className="shrink-0 text-text-muted" />
       <input
         autoFocus
+        aria-label="Search channels"
         value={query}
         onChange={(e) => handleChange(e.target.value)}
         placeholder="Search channels..."

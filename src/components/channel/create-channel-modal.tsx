@@ -94,7 +94,7 @@ export function CreateChannelModal() {
           </div>
 
           {/* Channel name */}
-          <label className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+          <label htmlFor="channel-name" className="mb-2 block text-xs font-bold uppercase text-header-secondary">
             Channel Name
           </label>
           <div className="mb-4 flex items-center rounded-[3px] bg-background-tertiary px-3 py-2.5">
@@ -104,6 +104,7 @@ export function CreateChannelModal() {
               <Volume2 size={18} className="mr-1 text-channel-default" />
             )}
             <input
+              id="channel-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}

@@ -105,6 +105,7 @@ export function SearchPanel({ guildId, onClose, onNavigate }: SearchPanelProps) 
           />
           <input
             type="text"
+            aria-label="Search messages"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Search messages..."
@@ -280,6 +281,7 @@ function FilterInput({
       <span className="text-text-muted shrink-0">{icon}</span>
       <input
         type={type}
+        aria-label={placeholder || type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
