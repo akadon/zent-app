@@ -1,7 +1,6 @@
 /**
- * Message service — no-op.
- * Message events are now handled by guild polling service (guild-service.ts).
- * This file kept for backward compatibility with any imports.
+ * Message service — no-op stub.
+ * Message events handled centrally in guild-service.ts via gateway.
  */
 export function initMessageHandlers(): () => void {
   return () => {};
