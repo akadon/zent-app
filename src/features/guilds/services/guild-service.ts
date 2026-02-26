@@ -176,12 +176,10 @@ function handleEvent(type: string, data: any, queryClient: QueryClient) {
     }
     case "VOICE_SERVER_UPDATE":
       if (data.token && data.endpoint) {
-        store.getState().setVoiceConnection({
-          guildId: data.guildId,
-          channelId: data.channelId,
-          token: data.token,
-          endpoint: data.endpoint,
-        });
+        const conn = store.getState().voiceConnection;
+        if (conn) {
+          store.getState().connectToLiveKit(data.token, data.endpoint);
+        }
       }
       break;
     case "RELATIONSHIP_ADD":

@@ -363,10 +363,10 @@ export function VoiceChannel({ channelId, guildId, channelName, channelType }: V
                   <VolumeX className="h-3 w-3 shrink-0 text-red-400" />
                 )}
                 {vs.mute && (
-                  <Shield className="h-3 w-3 shrink-0 text-orange-400" title="Server muted" />
+                  <span title="Server muted"><Shield className="h-3 w-3 shrink-0 text-orange-400" /></span>
                 )}
                 {vs.deaf && !vs.selfDeaf && (
-                  <Shield className="h-3 w-3 shrink-0 text-orange-400" title="Server deafened" />
+                  <span title="Server deafened"><Shield className="h-3 w-3 shrink-0 text-orange-400" /></span>
                 )}
                 {/* Per-user volume control on hover */}
                 {connected && vs.userId !== livekitRoom?.localParticipant?.identity && (
