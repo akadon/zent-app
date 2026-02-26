@@ -13,7 +13,7 @@ COPY . .
 RUN rm -rf electron/
 RUN npm run build
 
-FROM nginx:alpine AS runner
+FROM nginxinc/nginx-unprivileged:alpine AS runner
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY --from=builder /app/public/_headers /usr/share/nginx/html/_headers
 RUN printf 'server {\n\
