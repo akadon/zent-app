@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useGuildStore } from "@/stores/guild";
+import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import { api } from "@/lib/api";
 import { Hash, Volume2, Search, MessageSquare, Users } from "lucide-react";
@@ -34,7 +35,8 @@ export function QuickSwitcher({ open, onClose }: QuickSwitcherProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { guilds, channels, selectGuild, selectChannel } = useGuildStore();
+  const { guilds, channels } = useGuildStore();
+  const { selectGuild, selectChannel } = useUIStore();
   const currentUser = useAuthStore((s) => s.user);
 
   const { data: dmChannels = [] } = useQuery({
