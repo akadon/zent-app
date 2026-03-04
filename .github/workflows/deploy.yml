@@ -18,10 +18,10 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install 2>&1 | tee /tmp/install.log || (cat /tmp/install.log >> $GITHUB_STEP_SUMMARY && exit 1)
+        run: npm install
 
       - name: Build and deploy
-        run: npx vinext deploy 2>&1 | tee /tmp/deploy.log || (cat /tmp/deploy.log >> $GITHUB_STEP_SUMMARY && exit 1)
+        run: npx vinext deploy
         env:
           VITE_API_URL: https://api.3aka.com/api
           VITE_WS_URL: wss://api.3aka.com
