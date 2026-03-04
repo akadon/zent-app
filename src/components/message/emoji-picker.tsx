@@ -42,7 +42,7 @@ export function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
             className="flex-1 bg-transparent text-sm text-text-normal placeholder-text-muted outline-none"
           />
           {search && (
-            <button onClick={() => setSearch("")} className="text-text-muted hover:text-text-normal">
+            <button onClick={() => setSearch("")} className="text-text-muted hover:text-text-normal" aria-label="Clear search">
               <X size={14} />
             </button>
           )}

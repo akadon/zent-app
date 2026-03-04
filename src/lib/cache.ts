@@ -149,9 +149,7 @@ export const cache = {
     await putInStore("guilds", guild.id, guild);
   },
   async putGuilds(guilds: any[]) {
-    for (const g of guilds) {
-      await putInStore("guilds", g.id, g);
-    }
+    await Promise.all(guilds.map((g) => putInStore("guilds", g.id, g)));
   },
 
   // Channels
@@ -162,9 +160,7 @@ export const cache = {
     await putInStore("channels", channel.id, channel, { guildId: channel.guildId });
   },
   async putChannels(guildId: string, channels: any[]) {
-    for (const ch of channels) {
-      await putInStore("channels", ch.id, ch, { guildId });
-    }
+    await Promise.all(channels.map((ch) => putInStore("channels", ch.id, ch, { guildId })));
   },
 
   // Users

@@ -62,7 +62,7 @@ export function ScheduledMessagesPanel({ channelId, onClose }: ScheduledMessages
           >
             <Plus size={18} />
           </button>
-          <button onClick={onClose} className="text-interactive-normal hover:text-interactive-hover">
+          <button onClick={onClose} className="text-interactive-normal hover:text-interactive-hover" aria-label="Close">
             <X size={18} />
           </button>
         </div>
