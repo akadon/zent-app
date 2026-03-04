@@ -3,6 +3,9 @@ import vinext from "vinext";
 import rsc from "@vitejs/plugin-rsc";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [
