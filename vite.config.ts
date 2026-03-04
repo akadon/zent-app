@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [
-    vinext(),
+    vinext({ rsc: false }),
     rsc({
       entries: {
         rsc: "virtual:vinext-rsc-entry",
