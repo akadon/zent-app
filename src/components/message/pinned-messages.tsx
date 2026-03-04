@@ -29,7 +29,7 @@ export function PinnedMessages({ channelId, onClose }: PinnedMessagesProps) {
           <Pin size={18} className="text-text-muted" />
           <h3 className="font-semibold text-header-primary">Pinned Messages</h3>
         </div>
-        <button onClick={onClose} className="text-interactive-normal hover:text-interactive-hover">
+        <button onClick={onClose} className="text-interactive-normal hover:text-interactive-hover" aria-label="Close">
           <X size={18} />
         </button>
       </div>

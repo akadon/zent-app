@@ -48,12 +48,9 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
       }
       // Evict oldest entries if over cap
       if (newMap.size > MAX_PRESENCES) {
-        const it = newMap.keys();
-        let excess = newMap.size - MAX_PRESENCES;
-        while (excess-- > 0) {
-          const key = it.next().value;
-          if (key !== undefined) newMap.delete(key);
-        }
+        const excess = newMap.size - MAX_PRESENCES;
+        const keysToDelete = Array.from(newMap.keys()).slice(0, excess);
+        for (const key of keysToDelete) newMap.delete(key);
       }
       return { presences: newMap };
     }),

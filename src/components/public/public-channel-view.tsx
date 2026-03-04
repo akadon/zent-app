@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Hash, Users, ExternalLink, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+import { API_URL } from "@/lib/api";
 
 interface PublicMessage {
   id: string;

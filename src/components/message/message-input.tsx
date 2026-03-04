@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect, useCallback, Suspense, lazy } from "react";
 import { PlusCircle, Smile, X, Paperclip, BarChart3 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, API_URL } from "@/lib/api";
 import { useDraftPersistence } from "@/hooks/use-draft-persistence";
 const LazyEmojiPicker = lazy(() => import("./emoji-picker").then(m => ({ default: m.EmojiPicker })));
 import { ReplyPreview } from "./reply-preview";
 import type { Message } from "@yxc/types";
-
-const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 interface MessageInputProps {
   channelId: string;
