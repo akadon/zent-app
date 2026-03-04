@@ -120,9 +120,25 @@ export const cache = {
     await putInStore("messages", message.id, message, { channelId: message.channelId });
   },
   async putMessages(channelId: string, messages: any[]) {
-    for (const msg of messages) {
-      await putInStore("messages", msg.id, msg, { channelId });
-    }
+    if (messages.length === 0) return;
+    const db = await getDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("messages", "readwrite");
+      const store = tx.objectStore("messages");
+      for (const msg of messages) {
+        store.put({ key: msg.id, data: msg, timestamp: Date.now(), channelId: msg.channelId || channelId });
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+  async deleteMessage(messageId: string) {
+    await deleteFromStore("messages", messageId);
+  },
+  async getLastMessageId(channelId: string): Promise<string | null> {
+    const messages = await getAllByIndex<any>("messages", "channelId", channelId);
+    if (messages.length === 0) return null;
+    return messages.reduce((latest, msg) => msg.id > latest.id ? msg : latest).id;
   },
 
   // Guilds

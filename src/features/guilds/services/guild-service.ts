@@ -5,6 +5,7 @@
  */
 import { gateway } from "@/gateway/client";
 import { useGuildStore } from "@/stores/guild";
+import { cache } from "@/lib/cache";
 import type { QueryClient } from "@tanstack/react-query";
 import type { Guild, Channel, Member, Message, VoiceState } from "@yxc/types";
 
@@ -36,18 +37,22 @@ function handleEvent(type: string, data: any, queryClient: QueryClient) {
   switch (type) {
     case "GUILD_CREATE":
       store.getState().addGuild(data as Guild);
+      cache.putGuild(data).catch(() => {});
       break;
     case "GUILD_UPDATE":
       store.getState().updateGuild(data as Guild);
+      cache.putGuild(data).catch(() => {});
       break;
     case "GUILD_DELETE":
       store.getState().removeGuild(data.id);
       break;
     case "CHANNEL_CREATE":
       if (data.guildId) store.getState().addChannel(data.guildId, data as Channel);
+      cache.putChannel(data).catch(() => {});
       break;
     case "CHANNEL_UPDATE":
       store.getState().updateChannel(data as Channel);
+      cache.putChannel(data).catch(() => {});
       break;
     case "CHANNEL_DELETE":
       store.getState().removeChannel(data.guildId, data.id);
@@ -97,6 +102,8 @@ function handleEvent(type: string, data: any, queryClient: QueryClient) {
         newPages[0] = [msg, ...newPages[0]];
         return { ...old, pages: newPages };
       });
+      // Persist to IndexedDB for offline access
+      cache.putMessage(msg).catch(() => {});
       break;
     }
     case "MESSAGE_UPDATE": {
@@ -114,6 +121,8 @@ function handleEvent(type: string, data: any, queryClient: QueryClient) {
           ),
         };
       });
+      // Update in IndexedDB
+      cache.putMessage({ ...update }).catch(() => {});
       break;
     }
     case "MESSAGE_DELETE": {
@@ -127,6 +136,8 @@ function handleEvent(type: string, data: any, queryClient: QueryClient) {
           ),
         };
       });
+      // Remove from IndexedDB
+      cache.deleteMessage(del.id).catch(() => {});
       break;
     }
     case "MESSAGE_DELETE_BULK": {
@@ -141,6 +152,10 @@ function handleEvent(type: string, data: any, queryClient: QueryClient) {
           ),
         };
       });
+      // Remove from IndexedDB
+      for (const id of bulk.ids) {
+        cache.deleteMessage(id).catch(() => {});
+      }
       break;
     }
     case "MESSAGE_REACTION_ADD":
