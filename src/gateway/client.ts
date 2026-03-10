@@ -17,6 +17,9 @@ export class GatewayClient {
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatAcked = true;
+  private sendQueue: unknown[] = [];
 
   connect(token: string) {
     this.token = token;
@@ -78,11 +81,18 @@ export class GatewayClient {
           this.ws?.close();
         }
         // op 11 = HEARTBEAT_ACK — connection alive
-        // (no action needed, heartbeat timer continues)
+        if (payload.op === 11) {
+          this.heartbeatAcked = true;
+        }
 
         // Store sessionId from READY event
         if (payload.op === 0 && payload.t === "READY" && payload.d?.sessionId) {
           this.sessionId = payload.d.sessionId;
+          this.drainQueue();
+        }
+        // Drain queued messages after successful resume
+        if (payload.op === 0 && payload.t === "RESUMED") {
+          this.drainQueue();
         }
       } catch {
         // Ignore malformed messages
@@ -109,6 +119,7 @@ export class GatewayClient {
     this.lastSequence = 0;
     this.reconnectAttempt = 0;
     this.token = null;
+    this.sendQueue.length = 0;
     if (this.ws) {
       this.ws.onclose = null; // Prevent reconnect on intentional disconnect
       this.ws.close();
@@ -136,8 +147,18 @@ export class GatewayClient {
     }
   }
 
-  private send(data: unknown) {
+  private send(data: unknown, queue = true) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data));
+    } else if (queue) {
+      this.sendQueue.push(data);
+    }
+  }
+
+  private drainQueue() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    const queued = this.sendQueue.splice(0);
+    for (const data of queued) {
       this.ws.send(JSON.stringify(data));
     }
   }
@@ -156,17 +177,33 @@ export class GatewayClient {
 
   private startHeartbeat(interval: number) {
     this.stopHeartbeat();
+    this.heartbeatAcked = true;
     // Add jitter to first heartbeat to avoid thundering herd
     const jitter = Math.random() * interval;
-    setTimeout(() => {
-      this.send({ op: 1, d: null }); // HEARTBEAT opcode = 1
+    this.heartbeatTimeout = setTimeout(() => {
+      this.heartbeatTimeout = null;
+      this.sendHeartbeat();
       this.heartbeatInterval = setInterval(() => {
-        this.send({ op: 1, d: null });
+        this.sendHeartbeat();
       }, interval);
     }, jitter);
   }
 
+  private sendHeartbeat() {
+    if (!this.heartbeatAcked) {
+      // No ACK received since last heartbeat — zombie connection, reconnect
+      this.ws?.close();
+      return;
+    }
+    this.heartbeatAcked = false;
+    this.send({ op: 1, d: null }, false); // HEARTBEAT opcode = 1, never queue
+  }
+
   private stopHeartbeat() {
+    if (this.heartbeatTimeout) {
+      clearTimeout(this.heartbeatTimeout);
+      this.heartbeatTimeout = null;
+    }
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;

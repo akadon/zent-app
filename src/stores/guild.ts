@@ -1,12 +1,6 @@
-// livekit-client ^2.9.0 — already in package.json
+// livekit-client ^2.9.0 — dynamically imported to avoid loading ~200KB upfront
 import { create } from "zustand";
-import {
-  Room,
-  RoomEvent,
-  Track,
-  type RemoteTrackPublication,
-  type RemoteParticipant,
-} from "livekit-client";
+import type { Room as RoomType } from "livekit-client";
 import type { Guild, Channel, Member, VoiceState } from "@yxc/types";
 import { api } from "@/lib/api";
 
@@ -23,7 +17,7 @@ interface VoiceConnection {
   selfDeaf: boolean;
   selfVideo: boolean;
   selfStream: boolean;
-  livekitRoom: Room | null;
+  livekitRoom: RoomType | null;
   livekitToken: string | null;
 }
 
@@ -186,6 +180,8 @@ export const useGuildStore = create<GuildState>((set, get) => ({
       conn.livekitRoom.disconnect();
     }
 
+    const { Room, RoomEvent } = await import("livekit-client");
+
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
@@ -270,13 +266,14 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     }
   },
 
-  toggleSelfDeaf: () => {
+  toggleSelfDeaf: async () => {
     const conn = get().voiceConnection;
     if (!conn) return;
     const newDeaf = !conn.selfDeaf;
     const newMute = newDeaf ? true : conn.selfMute;
     set({ voiceConnection: { ...conn, selfDeaf: newDeaf, selfMute: newMute } });
     if (conn.livekitRoom) {
+      const { Track } = await import("livekit-client");
       conn.livekitRoom.localParticipant.setMicrophoneEnabled(!newMute);
       for (const p of conn.livekitRoom.remoteParticipants.values()) {
         for (const pub of p.trackPublications.values()) {
