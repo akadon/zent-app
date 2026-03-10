@@ -4,8 +4,8 @@
   "description": "Privacy-first Discord alternative with Matrix compatibility",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#5865f2",
+  "background_color": "#0c1018",
+  "theme_color": "#0c1018",
   "orientation": "any",
   "categories": ["social", "communication"],
   "icons": [
