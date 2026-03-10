@@ -41,7 +41,7 @@ export class GatewayClient {
       }
       if (this.sessionId) {
         // Resume existing session
-        this.send({ op: 6, d: { token: this.token, sessionId: this.sessionId, seq: this.lastSequence } });
+        this.send({ op: 6, d: { sessionId: this.sessionId, seq: this.lastSequence } });
       } else {
         // Fresh identify
         this.send({ op: 2, d: { token: this.token, intents: 0x1FFFF } });
