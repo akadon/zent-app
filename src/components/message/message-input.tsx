@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, Suspense, lazy } from "react";
 import { PlusCircle, Smile, X, Paperclip, BarChart3 } from "lucide-react";
+import { toast } from "sonner";
 import { api, API_URL } from "@/lib/api";
 import { useDraftPersistence } from "@/hooks/use-draft-persistence";
 const LazyEmojiPicker = lazy(() => import("./emoji-picker").then(m => ({ default: m.EmojiPicker })));
@@ -47,6 +48,18 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
     setContent(draft);
     setFiles([]);
   }, [channelId, draft]);
+
+  // Revoke all pending object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      setFiles((prev) => {
+        for (const f of prev) {
+          if (f.preview) URL.revokeObjectURL(f.preview);
+        }
+        return prev;
+      });
+    };
+  }, []);
 
   // Send typing indicator (debounced to every 5s)
   const sendTyping = useCallback(() => {
@@ -108,8 +121,8 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
         clearDraft();
         setFiles([]);
         onCancelReply?.();
-      } catch {
-        // Error handled silently
+      } catch (err: any) {
+        toast.error(err?.message ?? "Failed to upload file");
       } finally {
         setUploading(false);
       }
@@ -143,7 +156,9 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
       setPollMultiselect(false);
       setPollDuration("");
       setShowPollCreator(false);
-    } catch {}
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to create poll");
+    }
   };
 
   return (

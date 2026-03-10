@@ -240,16 +240,22 @@ export function MessageItem({ message, isCompact, onReply }: MessageItemProps) {
             "animate-fade-in"
           )}>
             <Reply size={12} className="shrink-0 rotate-180" />
-            <div
-              className="h-4 w-0.5 rounded-full"
-              style={{ backgroundColor: getUserColor(message.referencedMessage.author.id) }}
-            />
-            <span
-              className="font-medium cursor-pointer hover:underline"
-              style={{ color: getUserColor(message.referencedMessage.author.id) }}
-            >
-              {message.referencedMessage.author.username}
-            </span>
+            {message.referencedMessage.author ? (
+              <>
+                <div
+                  className="h-4 w-0.5 rounded-full"
+                  style={{ backgroundColor: getUserColor(message.referencedMessage.author.id) }}
+                />
+                <span
+                  className="font-medium cursor-pointer hover:underline"
+                  style={{ color: getUserColor(message.referencedMessage.author.id) }}
+                >
+                  {message.referencedMessage.author.username}
+                </span>
+              </>
+            ) : (
+              <span className="font-medium italic opacity-60">Unknown User</span>
+            )}
             <span className="truncate max-w-xs opacity-80">
               {message.referencedMessage.content}
             </span>
