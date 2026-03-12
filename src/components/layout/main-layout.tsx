@@ -6,6 +6,7 @@ import { useUIStore } from "@/stores/ui";
 import { useGuildStore } from "@/stores/guild";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { cn } from "@/lib/utils";
+import { ClaimAccountModal } from "@/components/auth/claim-account-modal";
 import type { Guild } from "@yxc/types";
 
 // Feature components
@@ -36,7 +37,7 @@ import {
 } from "lucide-react";
 
 export function MainLayout() {
-  const { user, token } = useAuthStore();
+  const { user, token, isGuest } = useAuthStore();
   const {
     activeModal, memberListOpen, toggleMemberList, openModal,
     selectedGuildId, selectedChannelId, selectGuild, selectChannel,
@@ -46,6 +47,7 @@ export function MainLayout() {
   const gatewayGuilds = useGuildStore((s) => s.guilds);
 
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showClaimModal, setShowClaimModal] = useState(false);
 
   // Load animation
   useEffect(() => {
@@ -94,6 +96,19 @@ export function MainLayout() {
         isLoaded ? "opacity-100" : "opacity-0"
       )}
     >
+      {/* ── GUEST BANNER ── */}
+      {user?.isGuest && (
+        <div className="flex items-center justify-between bg-amber-600/20 border-b border-amber-600/30 px-4 py-2 text-sm text-amber-200">
+          <span>You're browsing as a guest. Claim your account to keep it.</span>
+          <button
+            onClick={() => setShowClaimModal(true)}
+            className="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
+          >
+            Claim Account
+          </button>
+        </div>
+      )}
+
       {/* ── HEADER ── */}
       <header className={cn(
         "flex h-14 items-center justify-between px-4",
@@ -358,6 +373,7 @@ export function MainLayout() {
       {activeModal === "userSettings" && <UserSettings />}
       {activeModal === "guildSettings" && <GuildSettings />}
       {activeModal === "discoverServers" && <DiscoverServersModal />}
+      {showClaimModal && <ClaimAccountModal onClose={() => setShowClaimModal(false)} />}
     </div>
   );
 }

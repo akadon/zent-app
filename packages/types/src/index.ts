@@ -119,6 +119,7 @@ export interface User {
   flags: number;
   premiumType: number;
   locale: string;
+  isGuest: boolean;
   createdAt: string;
 }
 

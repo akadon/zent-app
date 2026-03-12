@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import { toast } from "sonner";
-import { X, LogOut, User, Shield, Paintbrush, Bell, Download, Key, Monitor, Eye } from "lucide-react";
+import { X, LogOut, User, Shield, Paintbrush, Bell, Download, Key, Monitor, Eye, UserPlus } from "lucide-react";
 import { ThemeEditor } from "./theme-editor";
 import { NotificationSettingsUI } from "./notification-settings";
 import { MFASettings } from "./mfa-settings";
@@ -14,13 +14,15 @@ import { PushNotificationSettings } from "./push-notification-settings";
 import { EmailVerification } from "./email-verification";
 import { PasskeySettings } from "./passkey-settings";
 import { RecoveryKeySettings } from "./recovery-key-settings";
+import { ClaimAccountModal } from "@/components/auth/claim-account-modal";
 
 type SettingsTab = "account" | "profile" | "security" | "sessions" | "appearance" | "accessibility" | "notifications" | "data";
 
 export function UserSettings() {
   const closeModal = useUIStore((s) => s.closeModal);
-  const { user, logout, loadSession } = useAuthStore();
+  const { user, logout, loadSession, isGuest } = useAuthStore();
   const [tab, setTab] = useState<SettingsTab>("account");
+  const [showClaimModal, setShowClaimModal] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 flex bg-background-tertiary">
@@ -81,6 +83,16 @@ export function UserSettings() {
 
           <div className="my-2 h-px bg-background-primary" />
 
+          {isGuest() && (
+            <button
+              onClick={() => setShowClaimModal(true)}
+              className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-sm text-amber-400 hover:bg-interactive-muted/20"
+            >
+              <UserPlus size={18} />
+              Claim Account
+            </button>
+          )}
+
           <button
             onClick={() => {
               logout();
@@ -133,6 +145,8 @@ export function UserSettings() {
           {tab === "data" && <DataPrivacyTab />}
         </div>
       </div>
+
+      {showClaimModal && <ClaimAccountModal onClose={() => setShowClaimModal(false)} />}
     </div>
   );
 }

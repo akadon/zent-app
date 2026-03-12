@@ -16,7 +16,7 @@ export function AuthPage() {
   const [mfaCode, setMfaCode] = useState("");
   const [recoveryKey, setRecoveryKey] = useState("");
 
-  const { login, register, verifyMfa, setAuth } = useAuthStore();
+  const { login, register, verifyMfa, setAuth, guestLogin } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +102,17 @@ export function AuthPage() {
       setAuth(res.token, res.user);
     } catch (err: any) {
       toast.error(err.message ?? "Passkey authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setLoading(true);
+    try {
+      await guestLogin();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to create guest session");
     } finally {
       setLoading(false);
     }
@@ -274,6 +285,25 @@ export function AuthPage() {
             <Fingerprint className="h-4 w-4" />
             Sign in with Passkey
           </button>
+        )}
+
+        {/* Guest login - only on login mode */}
+        {mode === "login" && (
+          <>
+            <div className="flex items-center gap-3 my-3">
+              <div className="flex-1 h-px bg-background-hover" />
+              <span className="text-text-muted text-xs">or</span>
+              <div className="flex-1 h-px bg-background-hover" />
+            </div>
+            <button
+              type="button"
+              onClick={handleGuestLogin}
+              disabled={loading}
+              className="w-full rounded-[3px] border border-interactive-muted bg-transparent py-2.5 text-sm font-medium text-text-normal transition-colors hover:border-interactive-hover hover:text-interactive-hover disabled:opacity-50"
+            >
+              Continue as Guest
+            </button>
+          </>
         )}
 
         <p className="mt-4 text-sm text-text-muted">
