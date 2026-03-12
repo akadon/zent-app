@@ -14,13 +14,16 @@ interface AuthState {
 
   login: (email: string, password: string) => Promise<MfaRequired | void>;
   register: (email: string, username: string, password: string) => Promise<void>;
+  guestLogin: () => Promise<void>;
+  claimAccount: (email: string, username: string, password: string) => Promise<void>;
+  isGuest: () => boolean;
   logout: () => void;
   loadSession: () => Promise<void>;
   verifyMfa: (code: string, ticket: string) => Promise<void>;
   setAuth: (token: string, user: User) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
   isLoading: true,
@@ -45,6 +48,23 @@ export const useAuthStore = create<AuthState>((set) => ({
     api.setToken(res.token!);
     set({ user: res.user!, token: res.token! });
   },
+
+  guestLogin: async () => {
+    const res = await api.post<AuthResponse>("/auth/guest");
+    api.setToken(res.token!);
+    set({ user: res.user!, token: res.token!, isLoading: false });
+  },
+
+  claimAccount: async (email, username, password) => {
+    const res = await api.post<{ user: User }>("/auth/claim", {
+      email,
+      username,
+      password,
+    });
+    set({ user: res.user });
+  },
+
+  isGuest: () => get().user?.isGuest ?? false,
 
   logout: () => {
     // fire and forget server-side session revocation
