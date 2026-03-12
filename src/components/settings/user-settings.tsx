@@ -37,54 +37,63 @@ export function UserSettings() {
             icon={<User size={18} />}
             active={tab === "account"}
             onClick={() => setTab("account")}
+            testId="settings-nav-account"
           />
           <SettingsNavItem
             label="Profile"
             icon={<Shield size={18} />}
             active={tab === "profile"}
             onClick={() => setTab("profile")}
+            testId="settings-nav-profile"
           />
           <SettingsNavItem
             label="Security"
             icon={<Key size={18} />}
             active={tab === "security"}
             onClick={() => setTab("security")}
+            testId="settings-nav-security"
           />
           <SettingsNavItem
             label="Sessions"
             icon={<Monitor size={18} />}
             active={tab === "sessions"}
             onClick={() => setTab("sessions")}
+            testId="settings-nav-sessions"
           />
           <SettingsNavItem
             label="Appearance"
             icon={<Paintbrush size={18} />}
             active={tab === "appearance"}
             onClick={() => setTab("appearance")}
+            testId="settings-nav-appearance"
           />
           <SettingsNavItem
             label="Accessibility"
             icon={<Eye size={18} />}
             active={tab === "accessibility"}
             onClick={() => setTab("accessibility")}
+            testId="settings-nav-accessibility"
           />
           <SettingsNavItem
             label="Notifications"
             icon={<Bell size={18} />}
             active={tab === "notifications"}
             onClick={() => setTab("notifications")}
+            testId="settings-nav-notifications"
           />
           <SettingsNavItem
             label="Data & Privacy"
             icon={<Download size={18} />}
             active={tab === "data"}
             onClick={() => setTab("data")}
+            testId="settings-nav-data"
           />
 
           <div className="my-2 h-px bg-background-primary" />
 
           {isGuest() && (
             <button
+              data-testid="settings-claim-button"
               onClick={() => setShowClaimModal(true)}
               className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-sm text-amber-400 hover:bg-interactive-muted/20"
             >
@@ -94,6 +103,7 @@ export function UserSettings() {
           )}
 
           <button
+            data-testid="settings-logout-button"
             onClick={() => {
               logout();
               closeModal();
@@ -120,6 +130,7 @@ export function UserSettings() {
             {tab === "data" && "Data & Privacy"}
           </h1>
           <button
+            data-testid="settings-close-button"
             onClick={closeModal}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-interactive-muted text-interactive-normal hover:border-interactive-hover hover:text-interactive-hover"
           >
@@ -156,14 +167,17 @@ function SettingsNavItem({
   icon,
   active,
   onClick,
+  testId,
 }: {
   label: string;
   icon: React.ReactNode;
   active: boolean;
   onClick: () => void;
+  testId?: string;
 }) {
   return (
     <button
+      data-testid={testId}
       onClick={onClick}
       className={`flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-sm ${
         active
@@ -223,6 +237,7 @@ function ProfileTab() {
           Display Name
         </label>
         <input
+          data-testid="profile-display-name-input"
           type="text"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}

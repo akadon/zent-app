@@ -297,6 +297,7 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
           accept="image/*,video/*,audio/*,.pdf,.txt,.zip,.json"
         />
         <button
+          data-testid="file-upload-button"
           onClick={() => fileInputRef.current?.click()}
           className="shrink-0 p-3 text-interactive-normal hover:text-interactive-hover"
           title="Upload file"
@@ -304,6 +305,7 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
           <PlusCircle size={24} />
         </button>
         <button
+          data-testid="poll-create-button"
           onClick={() => setShowPollCreator(!showPollCreator)}
           className="shrink-0 p-3 text-interactive-normal hover:text-interactive-hover"
           title="Create poll"
@@ -313,6 +315,7 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
 
         <textarea
           ref={textareaRef}
+          data-testid="message-input"
           aria-label="Message"
           value={content}
           onChange={(e) => {
@@ -328,6 +331,7 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
 
         <div className="relative flex shrink-0 gap-1 p-2">
           <button
+            data-testid="emoji-picker-button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className="rounded p-1 text-interactive-normal hover:text-interactive-hover"
           >

@@ -15,6 +15,8 @@ import { MobileChatView } from "./mobile-chat-view";
 
 import { FriendsPage } from "@/components/friends/friends-page";
 import { MessageArea } from "@/components/message/message-area";
+import { SearchPanel } from "@/components/search/search-panel";
+import { MobileProfileSettings } from "./mobile-profile-settings";
 
 // Modals
 import { CreateGuildModal } from "@/components/guild/create-guild-modal";
@@ -103,15 +105,24 @@ export function MobileShell() {
             )}
 
             {mobileTab === "profile" && (
-              <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
-                Profile settings coming soon
-              </div>
+              <MobileProfileSettings />
             )}
 
             {mobileTab === "search" && (
-              <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
-                Search coming soon
-              </div>
+              selectedGuildId ? (
+                <SearchPanel
+                  guildId={selectedGuildId}
+                  onClose={() => useUIStore.getState().setMobileTab("home")}
+                  onNavigate={(channelId) => {
+                    selectChannel(channelId);
+                  }}
+                />
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-text-muted text-sm px-6 text-center gap-2">
+                  <p className="text-header-secondary font-medium">Search Messages</p>
+                  <p>Select a server first to search its messages.</p>
+                </div>
+              )
             )}
           </main>
 
