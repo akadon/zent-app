@@ -89,6 +89,7 @@ export function MainLayout() {
 
   return (
     <div
+      data-testid="main-layout"
       className={cn(
         "flex h-screen flex-col overflow-hidden",
         "bg-background-primary",
@@ -98,9 +99,10 @@ export function MainLayout() {
     >
       {/* ── GUEST BANNER ── */}
       {user?.isGuest && (
-        <div className="flex items-center justify-between bg-amber-600/20 border-b border-amber-600/30 px-4 py-2 text-sm text-amber-200">
+        <div data-testid="guest-banner" className="flex items-center justify-between bg-amber-600/20 border-b border-amber-600/30 px-4 py-2 text-sm text-amber-200">
           <span>You're browsing as a guest. Claim your account to keep it.</span>
           <button
+            data-testid="guest-claim-button"
             onClick={() => setShowClaimModal(true)}
             className="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
           >
@@ -131,6 +133,7 @@ export function MainLayout() {
 
           <nav className="flex items-center gap-1 text-sm">
             <button
+              data-testid="home-button"
               onClick={() => { selectGuild(null); setShowFriends(true); }}
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg",
@@ -163,6 +166,7 @@ export function MainLayout() {
         </div>
 
         <button
+          data-testid="quick-search-button"
           onClick={() => openModal("quickSwitcher")}
           className={cn(
             "hidden lg:flex items-center gap-3 px-4 py-2 rounded-full",
@@ -181,19 +185,22 @@ export function MainLayout() {
         </button>
 
         <div className="flex items-center gap-2">
-          <HeaderButton icon={<Bell size={18} />} tooltip="Notifications" />
+          <HeaderButton icon={<Bell size={18} />} tooltip="Notifications" testId="notifications-button" />
           <HeaderButton
             icon={<Users size={18} />}
             tooltip="Toggle Members"
             onClick={toggleMemberList}
             active={memberListOpen}
+            testId="members-toggle-button"
           />
           <HeaderButton
             icon={<Settings size={18} />}
             tooltip="Settings"
             onClick={() => openModal("userSettings")}
+            testId="settings-button"
           />
           <button
+            data-testid="user-avatar-button"
             onClick={() => openModal("userSettings")}
             className={cn(
               "flex items-center gap-2 px-2 py-1.5 rounded-full",
@@ -215,7 +222,7 @@ export function MainLayout() {
       {/* ── MAIN AREA ── */}
       <div className="flex flex-1 overflow-hidden">
         {/* Dock */}
-        <div className={cn(
+        <div data-testid="guild-dock" className={cn(
           "flex flex-col items-center py-3 px-2",
           "bg-background-tertiary/50",
           "border-r border-surface-border/30",
@@ -223,6 +230,7 @@ export function MainLayout() {
           "animate-slide-in-left"
         )}>
           <button
+            data-testid="sidebar-toggle-button"
             onClick={toggleSidebar}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-xl mb-3",
@@ -263,6 +271,7 @@ export function MainLayout() {
           <div className="w-6 h-px bg-gradient-to-r from-transparent via-surface-border to-transparent my-3" />
 
           <button
+            data-testid="create-guild-button"
             onClick={() => openModal("createGuild")}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-xl",
@@ -276,6 +285,7 @@ export function MainLayout() {
           </button>
 
           <button
+            data-testid="explore-button"
             onClick={() => openModal("discoverServers")}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-xl",
@@ -383,14 +393,17 @@ function HeaderButton({
   tooltip,
   onClick,
   active,
+  testId,
 }: {
   icon: React.ReactNode;
   tooltip: string;
   onClick?: () => void;
   active?: boolean;
+  testId?: string;
 }) {
   return (
     <button
+      data-testid={testId}
       onClick={onClick}
       className={cn(
         "flex h-9 w-9 items-center justify-center rounded-xl",

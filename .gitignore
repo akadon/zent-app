@@ -3,3 +3,8 @@ dist/
 .next/
 package-lock.json
 tsconfig.tsbuildinfo
+playwright-report/
+test-results/
+playwright/.auth/
+coverage/
+blob-report/

@@ -207,6 +207,7 @@ export function AuthPage() {
                 </label>
                 <input
                   id="auth-email"
+                  data-testid="auth-email-input"
                   type="email"
                   required
                   value={email}
@@ -222,6 +223,7 @@ export function AuthPage() {
                   </label>
                   <input
                     id="auth-username"
+                    data-testid="auth-username-input"
                     type="text"
                     required
                     value={username}
@@ -237,6 +239,7 @@ export function AuthPage() {
                 </label>
                 <input
                   id="auth-password"
+                  data-testid="auth-password-input"
                   type="password"
                   required
                   value={password}
@@ -259,6 +262,7 @@ export function AuthPage() {
 
           <button
             type="submit"
+            data-testid="auth-login-button"
             disabled={loading || (mode === "mfa" && mfaCode.length !== 6)}
             className="w-full rounded-[3px] bg-brand py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
           >
@@ -297,6 +301,7 @@ export function AuthPage() {
             </div>
             <button
               type="button"
+              data-testid="auth-guest-button"
               onClick={handleGuestLogin}
               disabled={loading}
               className="w-full rounded-[3px] border border-interactive-muted bg-transparent py-2.5 text-sm font-medium text-text-normal transition-colors hover:border-interactive-hover hover:text-interactive-hover disabled:opacity-50"
@@ -311,6 +316,7 @@ export function AuthPage() {
             <>
               Need an account?{" "}
               <button
+                data-testid="auth-register-link"
                 onClick={() => switchMode("register")}
                 className="text-text-link hover:underline"
               >
