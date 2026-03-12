@@ -34,7 +34,7 @@ vi.mock('lucide-react', () => ({
   BarChart3: () => <span data-testid="barchart-icon" />,
 }));
 
-vi.mock('./reply-preview', () => ({
+vi.mock('../message/reply-preview', () => ({
   ReplyPreview: ({ message, onCancel }: any) => (
     <div data-testid="reply-preview">
       Replying to {message.id}
