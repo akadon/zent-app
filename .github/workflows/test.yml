@@ -18,5 +18,10 @@ jobs:
       - name: Install dependencies
         run: |
           rm -f package-lock.json
-          npm install --no-audit --no-fund
+          npm install --no-audit --no-fund 2>&1
+          echo "--- checking @testing-library/dom ---"
+          ls -la node_modules/@testing-library/ || true
+          npm ls @testing-library/dom 2>&1 || true
+          npm install @testing-library/dom@10 --save-dev --no-audit --no-fund 2>&1 || true
+          ls -la node_modules/@testing-library/ || true
       - run: npm run test:unit
