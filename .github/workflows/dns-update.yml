@@ -32,35 +32,42 @@ jobs:
           echo "zone_id=$ZONE_ID" >> "$GITHUB_OUTPUT"
           echo "Zone ID: $ZONE_ID"
 
-      - name: Find existing record
-        id: record
+      - name: Create or update DNS record
         run: |
-          RECORD=$(curl -sf "https://api.cloudflare.com/client/v4/zones/${{ steps.zone.outputs.zone_id }}/dns_records?name=${{ inputs.record_name }}&type=${{ inputs.record_type }}" \
-            -H "X-Auth-Key: ${{ secrets.CLOUDFLARE_GLOBAL_KEY }}" \
-            -H "X-Auth-Email: ${{ secrets.CLOUDFLARE_EMAIL }}")
-          RECORD_ID=$(echo "$RECORD" | jq -r '.result[0].id')
-          OLD_IP=$(echo "$RECORD" | jq -r '.result[0].content')
-          echo "record_id=$RECORD_ID" >> "$GITHUB_OUTPUT"
-          echo "Current: ${{ inputs.record_name }} -> $OLD_IP"
-          echo "New:     ${{ inputs.record_name }} -> ${{ inputs.record_content }}"
+          ZONE_ID="${{ steps.zone.outputs.zone_id }}"
+          AUTH_KEY="${{ secrets.CLOUDFLARE_GLOBAL_KEY }}"
+          AUTH_EMAIL="${{ secrets.CLOUDFLARE_EMAIL }}"
+          NAME="${{ inputs.record_name }}"
+          CONTENT="${{ inputs.record_content }}"
+          TYPE="${{ inputs.record_type }}"
+          PROXIED=${{ inputs.proxied }}
 
-      - name: Update DNS record
-        run: |
-          RESULT=$(curl -sf -X PUT \
-            "https://api.cloudflare.com/client/v4/zones/${{ steps.zone.outputs.zone_id }}/dns_records/${{ steps.record.outputs.record_id }}" \
-            -H "X-Auth-Key: ${{ secrets.CLOUDFLARE_GLOBAL_KEY }}" \
-            -H "X-Auth-Email: ${{ secrets.CLOUDFLARE_EMAIL }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "type": "${{ inputs.record_type }}",
-              "name": "${{ inputs.record_name }}",
-              "content": "${{ inputs.record_content }}",
-              "proxied": ${{ inputs.proxied }},
-              "ttl": 1
-            }')
+          # Check if record exists
+          EXISTING=$(curl -sf "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?name=$NAME&type=$TYPE" \
+            -H "X-Auth-Key: $AUTH_KEY" -H "X-Auth-Email: $AUTH_EMAIL")
+          RECORD_ID=$(echo "$EXISTING" | jq -r '.result[0].id // empty')
+          OLD_IP=$(echo "$EXISTING" | jq -r '.result[0].content // "none"')
+
+          PAYLOAD=$(jq -n --arg type "$TYPE" --arg name "$NAME" --arg content "$CONTENT" --argjson proxied "$PROXIED" \
+            '{type: $type, name: $name, content: $content, proxied: $proxied, ttl: 1}')
+
+          if [ -n "$RECORD_ID" ]; then
+            echo "Updating: $NAME ($OLD_IP -> $CONTENT)"
+            RESULT=$(curl -sf -X PUT \
+              "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID" \
+              -H "X-Auth-Key: $AUTH_KEY" -H "X-Auth-Email: $AUTH_EMAIL" \
+              -H "Content-Type: application/json" -d "$PAYLOAD")
+          else
+            echo "Creating: $NAME -> $CONTENT"
+            RESULT=$(curl -sf -X POST \
+              "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+              -H "X-Auth-Key: $AUTH_KEY" -H "X-Auth-Email: $AUTH_EMAIL" \
+              -H "Content-Type: application/json" -d "$PAYLOAD")
+          fi
+
           SUCCESS=$(echo "$RESULT" | jq -r '.success')
           if [ "$SUCCESS" = "true" ]; then
-            echo "DNS updated: ${{ inputs.record_name }} -> ${{ inputs.record_content }}"
+            echo "Done: $NAME -> $CONTENT (proxied: $PROXIED)"
           else
             echo "Failed: $RESULT"
             exit 1
