@@ -1,13 +1,13 @@
-name: Remove Cloudflare Pages
+name: Fix DNS Records
 
 on:
   workflow_dispatch:
 
 jobs:
-  cleanup:
+  fix-dns:
     runs-on: ubuntu-latest
     steps:
-      - name: Remove 3aka.com from CF Pages and purge cache
+      - name: Update DNS to point to origin
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -16,29 +16,50 @@ jobs:
             -H "Authorization: Bearer $CF_TOKEN" | jq -r '.result[0].id')
           echo "Zone: $ZONE_ID"
 
-          # Remove custom domain 3aka.com from Pages project
-          echo "=== Removing 3aka.com from Pages project ==="
-          curl -s -X DELETE \
-            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects/zent-app/domains/3aka.com" \
-            -H "Authorization: Bearer $CF_TOKEN" | jq .
+          # List ALL DNS records
+          echo "=== All DNS records ==="
+          curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq '.result[] | {id, name, type, content, proxied}'
 
-          # Delete the Pages project entirely
-          echo "=== Deleting Pages project zent-app ==="
-          curl -s -X DELETE \
-            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects/zent-app" \
-            -H "Authorization: Bearer $CF_TOKEN" | jq .
+          # Find the record for 3aka.com (root)
+          echo "=== Root record ==="
+          ROOT_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?name=3aka.com&type=CNAME" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq -r '.result[0].id')
+          echo "Root CNAME record ID: $ROOT_ID"
 
-          # Verify it's gone
-          echo "=== Remaining Pages projects ==="
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects" \
-            -H "Authorization: Bearer $CF_TOKEN" | jq '.result[] | {name, domains}'
+          if [ "$ROOT_ID" != "null" ] && [ -n "$ROOT_ID" ]; then
+            # Delete the old CNAME record
+            echo "Deleting old CNAME..."
+            curl -s -X DELETE \
+              "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$ROOT_ID" \
+              -H "Authorization: Bearer $CF_TOKEN" | jq .
+          fi
 
-          # Try cache purge
-          echo "=== Purging cache ==="
-          curl -s -X POST \
-            "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
-            -H "Authorization: Bearer $CF_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"purge_everything":true}' | jq .
+          # Also check for A record
+          A_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?name=3aka.com&type=A" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq -r '.result[0].id')
+          echo "Root A record ID: $A_ID"
+
+          if [ "$A_ID" != "null" ] && [ -n "$A_ID" ]; then
+            echo "Updating existing A record..."
+            curl -s -X PATCH \
+              "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$A_ID" \
+              -H "Authorization: Bearer $CF_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{"content":"193.123.36.192","proxied":true}' | jq .
+          else
+            # Create A record pointing to A1
+            echo "Creating A record for 3aka.com -> 193.123.36.192..."
+            curl -s -X POST \
+              "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+              -H "Authorization: Bearer $CF_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{"type":"A","name":"3aka.com","content":"193.123.36.192","proxied":true,"ttl":1}' | jq .
+          fi
+
+          # Verify
+          echo "=== Updated records ==="
+          curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?name=3aka.com" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq '.result[] | {name, type, content, proxied}'
 
           echo "Done!"
