@@ -1,29 +1,19 @@
 import { defineConfig } from "vite";
-import vinext from "vinext";
-import rsc from "@vitejs/plugin-rsc";
-import { cloudflare } from "@cloudflare/vite-plugin";
+import react from "@vitejs/plugin-react";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [
-    vinext({ rsc: false }),
-    rsc({
-      entries: {
-        rsc: "virtual:vinext-rsc-entry",
-        ssr: "virtual:vinext-app-ssr-entry",
-        client: "virtual:vinext-app-browser-entry",
-      },
-    }),
-    cloudflare({
-      viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
-    }),
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
     },
+  },
+  build: {
+    outDir: "dist",
+    sourcemap: false,
   },
 });

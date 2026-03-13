@@ -1,31 +1,50 @@
-name: Deploy to Cloudflare Workers
+name: Build & Deploy
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
 
-      - name: Build and deploy
-        run: npx vinext deploy
+      - name: Build
+        run: npm run build
         env:
           VITE_API_URL: https://api.3aka.com/api
           VITE_WS_URL: wss://gw.3aka.com
           VITE_CDN_URL: https://api.3aka.com
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 193.123.36.192
+          port: 2222
+          username: ubuntu
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "dist/*"
+          target: "/tmp/zent-app-deploy"
+          strip_components: 1
+
+      - name: Activate deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 193.123.36.192
+          port: 2222
+          username: ubuntu
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            rm -rf /var/www/zent-app/*
+            mv /tmp/zent-app-deploy/* /var/www/zent-app/
+            rm -rf /tmp/zent-app-deploy
