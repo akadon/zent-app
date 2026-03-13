@@ -1,6 +1,6 @@
 import { test as base, expect, Page } from '@playwright/test';
 
-const API_URL = process.env.TEST_API_URL || 'https://api.3aka.com';
+const API_URL = process.env.TEST_API_URL || 'http://localhost:4000';
 
 type TestFixtures = {
   authedPage: Page;
