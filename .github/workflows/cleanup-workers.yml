@@ -7,35 +7,31 @@ jobs:
   purge:
     runs-on: ubuntu-latest
     steps:
-      - name: Purge cache
+      - name: Check CF bindings and purge
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          # Get zone ID
           ZONE_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=3aka.com" \
             -H "Authorization: Bearer $CF_TOKEN" | jq -r '.result[0].id')
           echo "Zone: $ZONE_ID"
 
-          # Check token permissions
-          echo "Token permissions:"
-          curl -s "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+          # Check for Workers scripts
+          echo "=== Workers scripts ==="
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/scripts" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq '.result[] | {id, created_on}'
+
+          # Check for Pages projects
+          echo "=== Pages projects ==="
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq '.result[] | {name, subdomain, domains}'
+
+          # Check Workers domains (custom domains)
+          echo "=== Workers custom domains ==="
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/domains" \
             -H "Authorization: Bearer $CF_TOKEN" | jq .
 
-          # Try purge
-          echo "Purging..."
-          RESULT=$(curl -s -X POST \
-            "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
-            -H "Authorization: Bearer $CF_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"purge_everything":true}')
-          echo "$RESULT" | jq .
-
-          # If purge failed, try purging specific files
-          if echo "$RESULT" | jq -e '.success == false' > /dev/null 2>&1; then
-            echo "Full purge failed, trying specific URL purge..."
-            curl -s -X POST \
-              "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
-              -H "Authorization: Bearer $CF_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d '{"files":["https://3aka.com/","https://3aka.com/index.html","https://3aka.com/assets/"]}' | jq .
-          fi
+          # Try to list token permissions
+          echo "=== Token verify ==="
+          curl -s "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq .
