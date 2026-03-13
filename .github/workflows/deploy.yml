@@ -48,3 +48,5 @@ jobs:
             rm -rf /var/www/zent-app/*
             mv /tmp/zent-app-deploy/* /var/www/zent-app/
             rm -rf /tmp/zent-app-deploy
+            chmod -R o+r /var/www/zent-app/
+            find /var/www/zent-app -type d -exec chmod o+x {} \;
