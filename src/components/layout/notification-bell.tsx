@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Bell, Check, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@yxc/types";
@@ -19,7 +20,7 @@ export function NotificationBell() {
       const data = await api.get<Notification[]>("/users/@me/notifications?limit=20");
       setNotifications(data);
     } catch {
-      // ignore
+      toast.error("Failed to load notifications");
     } finally {
       setLoading(false);
     }
@@ -44,14 +45,18 @@ export function NotificationBell() {
     try {
       await api.post("/users/@me/notifications/read-all");
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch {}
+    } catch {
+      toast.error("Failed to mark notifications as read");
+    }
   };
 
   const clearAll = async () => {
     try {
       await api.delete("/users/@me/notifications");
       setNotifications([]);
-    } catch {}
+    } catch {
+      toast.error("Failed to clear notifications");
+    }
   };
 
   return (

@@ -152,7 +152,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           document.body.style.filter = `saturate(${settings.saturation}%)`;
         }
       }
-    } catch {}
+    } catch {
+      console.warn("Failed to load accessibility settings from localStorage");
+    }
   }, []);
 
   return (

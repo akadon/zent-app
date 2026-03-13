@@ -26,6 +26,13 @@ jobs:
           VITE_WS_URL: wss://gw.3aka.com
           VITE_CDN_URL: https://api.3aka.com
 
+      - name: Package for deploy
+        run: |
+          mkdir -p deploy
+          cp -r dist deploy/
+          cp package.json package-lock.json deploy/
+          cd deploy && npm install --omit=dev --no-audit --no-fund && npm install vinext --no-audit --no-fund
+
       - name: Deploy to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -33,7 +40,7 @@ jobs:
           port: 2222
           username: ubuntu
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "dist/*"
+          source: "deploy/*"
           target: "/tmp/zent-app-deploy"
           strip_components: 1
 
@@ -45,11 +52,10 @@ jobs:
           username: ubuntu
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            rm -rf /var/www/zent-app/*
-            mv /tmp/zent-app-deploy/* /var/www/zent-app/
+            rm -rf /opt/zent-app/*
+            mv /tmp/zent-app-deploy/* /opt/zent-app/
             rm -rf /tmp/zent-app-deploy
-            chmod -R o+r /var/www/zent-app/
-            find /var/www/zent-app -type d -exec chmod o+x {} \;
+            sudo systemctl restart zent-app
 
       - name: Purge Cloudflare cache
         run: |

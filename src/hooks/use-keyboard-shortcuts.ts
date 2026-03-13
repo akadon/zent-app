@@ -45,6 +45,14 @@ export function useKeyboardShortcuts() {
         openModal("userSettings");
         return;
       }
+
+      // Ctrl/Cmd + Shift + M: Scroll to newest message
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "M") {
+        e.preventDefault();
+        const textarea = document.querySelector("textarea") as HTMLTextAreaElement | null;
+        textarea?.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
     }
 
     document.addEventListener("keydown", handleKeyDown);

@@ -1,10 +1,9 @@
 node_modules/
 dist/
-.next/
+dist-electron/
 tsconfig.tsbuildinfo
 playwright-report/
 test-results/
 playwright/.auth/
 coverage/
 blob-report/
-.wrangler/

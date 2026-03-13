@@ -221,6 +221,8 @@ export function MessageArea({ channelId, guildId }: MessageAreaProps) {
           {/* Message input */}
           <MessageInput
             channelId={channelId}
+            channelName={channelInfo?.name ?? undefined}
+            guildId={guildId || undefined}
             onSend={(content, replyTo) => sendMessage.mutate({ content, replyTo })}
             disabled={sendMessage.isPending}
             replyingTo={replyingTo}

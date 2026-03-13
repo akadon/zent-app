@@ -1,19 +1,29 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import vinext from "vinext";
+import rsc from "@vitejs/plugin-rsc";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    vinext({ rsc: false }),
+    rsc({
+      entries: {
+        rsc: "virtual:vinext-rsc-entry",
+        ssr: "virtual:vinext-app-ssr-entry",
+        client: "virtual:vinext-app-browser-entry",
+      },
+    }),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
     },
   },
   build: {
-    outDir: "dist",
     sourcemap: false,
+    chunkSizeWarningLimit: 600,
   },
 });

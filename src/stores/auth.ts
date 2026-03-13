@@ -68,7 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     // fire and forget server-side session revocation
-    api.delete("/users/@me/sessions/current").catch(() => {});
+    api.delete("/users/@me/sessions/current").catch((e) => console.warn("Session revocation failed:", e));
     api.setToken(null);
     set({ user: null, token: null });
   },

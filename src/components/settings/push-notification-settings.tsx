@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, BellOff, BellRing, Check, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { requestNotificationPermission, registerServiceWorker, subscribeToPush } from '@/lib/notifications';
 import { api } from '@/lib/api';
 
@@ -59,7 +60,9 @@ export function PushNotificationSettings() {
         const subscription = await subscribeToPush(registration);
         await api.post('/users/@me/push-subscriptions', subscription.toJSON());
       }
-    } catch {}
+    } catch {
+      toast.error('Failed to enable push notifications');
+    }
   }, []);
 
   const toggleSetting = useCallback(

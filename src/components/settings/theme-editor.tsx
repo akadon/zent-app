@@ -127,7 +127,9 @@ export function ThemeEditor() {
         applyTheme(parsed);
         localStorage.setItem(THEME_KEY, JSON.stringify(parsed));
         setActivePreset("");
-      } catch {}
+      } catch {
+        alert("Invalid theme file. Please provide a valid JSON theme.");
+      }
     };
     input.click();
   };

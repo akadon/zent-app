@@ -15,7 +15,6 @@ import {
   Shield,
   MoreVertical,
 } from "lucide-react";
-import { Track, type RemoteTrackPublication } from "livekit-client";
 import { ChannelType } from "@yxc/types";
 import { useGuildStore } from "@/stores/guild";
 import { useAuthStore } from "@/stores/auth";
@@ -215,15 +214,15 @@ export function VoiceChannel({ channelId, guildId, channelName, channelType }: V
     for (const [, participant] of livekitRoom.remoteParticipants) {
       for (const [, pub] of participant.trackPublications) {
         if (!pub.track || !pub.isSubscribed) continue;
-        if (pub.source === Track.Source.Camera || pub.source === Track.Source.ScreenShare) {
+        if (pub.source === "camera" || pub.source === "screen_share") {
           videoTiles.push({
             participantName: participant.identity || participant.sid,
             track: pub.track,
-            isScreenShare: pub.source === Track.Source.ScreenShare,
+            isScreenShare: pub.source === "screen_share",
             participantId: participant.identity || participant.sid,
           });
         }
-        if (pub.source === Track.Source.Microphone) {
+        if (pub.source === "microphone") {
           audioTracks.push({
             participantId: participant.identity || participant.sid,
             track: pub.track,
@@ -236,11 +235,11 @@ export function VoiceChannel({ channelId, guildId, channelName, channelType }: V
     const local = livekitRoom.localParticipant;
     for (const [, pub] of local.trackPublications) {
       if (!pub.track) continue;
-      if (pub.source === Track.Source.Camera || pub.source === Track.Source.ScreenShare) {
+      if (pub.source === "camera" || pub.source === "screen_share") {
         videoTiles.push({
           participantName: local.identity || "You",
           track: pub.track,
-          isScreenShare: pub.source === Track.Source.ScreenShare,
+          isScreenShare: pub.source === "screen_share",
           participantId: local.identity || local.sid,
         });
       }
