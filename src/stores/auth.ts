@@ -14,7 +14,7 @@ interface AuthState {
 
   login: (email: string, password: string) => Promise<MfaRequired | void>;
   register: (email: string, username: string, password: string) => Promise<void>;
-  guestLogin: () => Promise<void>;
+  guestLogin: (displayName?: string) => Promise<void>;
   claimAccount: (email: string, username: string, password: string) => Promise<void>;
   isGuest: () => boolean;
   logout: () => void;
@@ -49,8 +49,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: res.user!, token: res.token! });
   },
 
-  guestLogin: async () => {
-    const res = await api.post<AuthResponse>("/auth/guest");
+  guestLogin: async (displayName?: string) => {
+    const res = await api.post<AuthResponse>("/auth/guest", displayName ? { displayName } : undefined);
     api.setToken(res.token!);
     set({ user: res.user!, token: res.token!, isLoading: false });
   },
