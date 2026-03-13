@@ -7,67 +7,21 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete Workers app and purge cache
+      - name: Purge Cloudflare cache
         run: |
-          set -x
-
-          # List all Workers scripts
-          echo "=== Listing all Workers scripts ==="
-          curl -s \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq '.result[].id'
-
-          # Delete the worker
-          echo "=== Deleting worker zent-app ==="
-          curl -s -X DELETE \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/zent-app" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            -H "Content-Type: application/json" | jq .
-
           # Get zone ID
           ZONE_ID=$(curl -s \
             "https://api.cloudflare.com/client/v4/zones?name=3aka.com" \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].id')
           echo "Zone ID: $ZONE_ID"
 
-          # List Workers routes
-          echo "=== Workers routes ==="
-          curl -s \
-            "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/workers/routes" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq .
-
-          # List Workers custom domains
-          echo "=== Workers custom domains ==="
-          curl -s \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq .
-
-          # Delete Workers custom domains for zent-app
-          DOMAIN_IDS=$(curl -s \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[] | select(.service == "zent-app") | .id')
-          for DID in $DOMAIN_IDS; do
-            echo "Deleting custom domain $DID..."
-            curl -s -X DELETE \
-              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains/$DID" \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq .
-          done
-
-          # List DNS records for 3aka.com
-          echo "=== DNS records ==="
-          curl -s \
-            "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=CNAME,A,AAAA" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq '.result[] | {name, type, content, proxied}'
-
-          # Purge cache
-          echo "=== Purging cache ==="
+          # Purge entire cache
+          echo "Purging cache..."
           curl -s -X POST \
             "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"purge_everything":true}' | jq .
-
-          echo "Done!"
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
