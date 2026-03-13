@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Smile, Reply, Pin, MoreHorizontal, Trash2, Edit, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { EmojiPicker } from "./emoji-picker";
@@ -38,20 +39,26 @@ export function MessageActions({ message, channelId, onReply, onEdit }: MessageA
       }
       queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
       queryClient.invalidateQueries({ queryKey: ["pins", channelId] });
-    } catch {}
+    } catch {
+      toast.error("Failed to pin message");
+    }
   };
 
   const handleReaction = async (emoji: string) => {
     try {
       await api.put(`/channels/${channelId}/messages/${message.id}/reactions/${encodeURIComponent(emoji)}/@me`);
       queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
-    } catch {}
+    } catch {
+      toast.error("Failed to add reaction");
+    }
   };
 
   const handleDelete = async () => {
     try {
       await api.delete(`/channels/${channelId}/messages/${message.id}`);
-    } catch {}
+    } catch {
+      toast.error("Failed to delete message");
+    }
   };
 
   const handleCopy = () => {

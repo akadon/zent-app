@@ -305,7 +305,7 @@ export const useGuildStore = create<GuildState>((set, get) => ({
     const conn = get().voiceConnection;
     if (conn) {
       if (conn.livekitRoom) conn.livekitRoom.disconnect();
-      api.post(`/voice/${conn.guildId}/leave`).catch(() => {});
+      api.post(`/voice/${conn.guildId}/leave`).catch((e) => console.warn("Voice leave failed:", e));
     }
     set({ voiceConnection: null, pendingVoiceServer: null });
   },

@@ -7,6 +7,7 @@ import { PollDisplay } from "./poll-display";
 import { MessageActions } from "./message-actions";
 import { ImageLightbox } from "./image-lightbox";
 import { InlineEdit } from "./inline-edit";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { Reply, FileText, Download } from "lucide-react";
@@ -86,7 +87,9 @@ export function MessageItem({ message, isCompact, onReply }: MessageItemProps) {
         await api.put(`/channels/${message.channelId}/messages/${message.id}/reactions/${emojiKey}/@me`);
       }
       queryClient.invalidateQueries({ queryKey: ["messages", message.channelId] });
-    } catch {}
+    } catch {
+      toast.error("Failed to update reaction");
+    }
   };
 
   if (isCompact) {

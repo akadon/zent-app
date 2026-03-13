@@ -17,6 +17,8 @@ import {
   Radio,
 } from "lucide-react";
 import { useState, useMemo } from "react";
+import { useGuildStore } from "@/stores/guild";
+import { MicOff, VolumeX } from "lucide-react";
 import { ChannelSearch } from "./channel-search";
 import { StatusPicker } from "@/components/layout/status-picker";
 import { VoicePanel } from "@/components/voice/voice-panel";
@@ -254,8 +256,7 @@ export function ChannelSidebar({
         </div>
 
         <div className="flex gap-1">
-          <IconButton icon={<Mic size={18} />} tooltip="Mute" />
-          <IconButton icon={<Headphones size={18} />} tooltip="Deafen" />
+          <MuteDeafenButtons />
           <IconButton
             icon={<Settings size={18} />}
             tooltip="User Settings"
@@ -377,23 +378,51 @@ function ChannelItem({
   );
 }
 
+function MuteDeafenButtons() {
+  const voiceConnection = useGuildStore((s) => s.voiceConnection);
+  const { toggleSelfMute, toggleSelfDeaf } = useGuildStore();
+  const selfMute = voiceConnection?.selfMute ?? false;
+  const selfDeaf = voiceConnection?.selfDeaf ?? false;
+
+  return (
+    <>
+      <IconButton
+        icon={selfMute ? <MicOff size={18} /> : <Mic size={18} />}
+        tooltip={selfMute ? "Unmute" : "Mute"}
+        onClick={toggleSelfMute}
+        active={selfMute}
+      />
+      <IconButton
+        icon={selfDeaf ? <VolumeX size={18} /> : <Headphones size={18} />}
+        tooltip={selfDeaf ? "Undeafen" : "Deafen"}
+        onClick={toggleSelfDeaf}
+        active={selfDeaf}
+      />
+    </>
+  );
+}
+
 function IconButton({
   icon,
   tooltip,
   onClick,
+  active,
 }: {
   icon: React.ReactNode;
   tooltip: string;
   onClick?: () => void;
+  active?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       className={cn(
         "flex items-center justify-center rounded-xl p-2",
-        "text-text-muted transition-all duration-200",
-        "hover:bg-brand/10 hover:text-brand-light",
-        "active:scale-90"
+        "transition-all duration-200",
+        "active:scale-90",
+        active
+          ? "text-red-400 bg-red-500/10 hover:bg-red-500/20"
+          : "text-text-muted hover:bg-brand/10 hover:text-brand-light"
       )}
       title={tooltip}
     >

@@ -12,7 +12,8 @@ type Segment =
   | { type: "codeblock"; language: string; code: string }
   | { type: "inlinecode"; code: string }
   | { type: "latex-block"; expr: string }
-  | { type: "latex-inline"; expr: string };
+  | { type: "latex-inline"; expr: string }
+  | { type: "blockquote"; value: string };
 
 function parseContent(content: string): Segment[] {
   const segments: Segment[] = [];
@@ -155,6 +156,115 @@ function LatexInline({ expr }: { expr: string }) {
   );
 }
 
+// Render inline markdown: bold, italic, strikethrough, underline, spoilers, links, mentions
+function InlineMarkdown({ text }: { text: string }) {
+  const elements: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  while (remaining.length > 0) {
+    // Bold + italic ***text***
+    let match = remaining.match(/^\*\*\*(.+?)\*\*\*/);
+    if (match) {
+      elements.push(<strong key={key++} className="font-bold"><em>{match[1]}</em></strong>);
+      remaining = remaining.slice(match[0].length);
+      continue;
+    }
+
+    // Bold **text**
+    match = remaining.match(/^\*\*(.+?)\*\*/);
+    if (match) {
+      elements.push(<strong key={key++} className="font-bold">{match[1]}</strong>);
+      remaining = remaining.slice(match[0].length);
+      continue;
+    }
+
+    // Underline __text__
+    match = remaining.match(/^__(.+?)__/);
+    if (match) {
+      elements.push(<u key={key++}>{match[1]}</u>);
+      remaining = remaining.slice(match[0].length);
+      continue;
+    }
+
+    // Italic *text* or _text_
+    match = remaining.match(/^\*(.+?)\*/);
+    if (!match) match = remaining.match(/^_(.+?)_/);
+    if (match) {
+      elements.push(<em key={key++}>{match[1]}</em>);
+      remaining = remaining.slice(match[0].length);
+      continue;
+    }
+
+    // Strikethrough ~~text~~
+    match = remaining.match(/^~~(.+?)~~/);
+    if (match) {
+      elements.push(<del key={key++} className="text-text-muted">{match[1]}</del>);
+      remaining = remaining.slice(match[0].length);
+      continue;
+    }
+
+    // Spoiler ||text||
+    match = remaining.match(/^\|\|(.+?)\|\|/);
+    if (match) {
+      elements.push(<SpoilerText key={key++} text={match[1]!} />);
+      remaining = remaining.slice(match[0].length);
+      continue;
+    }
+
+    // URL auto-link
+    match = remaining.match(/^(https?:\/\/[^\s<]+)/);
+    if (match) {
+      elements.push(
+        <a
+          key={key++}
+          href={match[1]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-text-link hover:underline"
+        >
+          {match[1]}
+        </a>
+      );
+      remaining = remaining.slice(match[0].length);
+      continue;
+    }
+
+    // Find next special token
+    const nextIdx = remaining.search(/\*\*\*|\*\*|__|\*|_|~~|\|\||https?:\/\//);
+    if (nextIdx === -1) {
+      elements.push(remaining);
+      break;
+    } else if (nextIdx === 0) {
+      // Single char that didn't match a full pattern
+      elements.push(remaining[0]);
+      remaining = remaining.slice(1);
+    } else {
+      elements.push(remaining.slice(0, nextIdx));
+      remaining = remaining.slice(nextIdx);
+    }
+  }
+
+  return <>{elements}</>;
+}
+
+function SpoilerText({ text }: { text: string }) {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <span
+      onClick={() => setRevealed(!revealed)}
+      className={cn(
+        "cursor-pointer rounded px-0.5 transition-all duration-200",
+        revealed
+          ? "bg-background-tertiary/50 text-text-normal"
+          : "bg-text-muted text-transparent hover:bg-text-muted/80"
+      )}
+    >
+      {text}
+    </span>
+  );
+}
+
 export function MessageContent({ content }: MessageContentProps) {
   const [expanded, setExpanded] = useState(false);
   const segments = useMemo(() => parseContent(content), [content]);
@@ -176,7 +286,7 @@ export function MessageContent({ content }: MessageContentProps) {
             case "text":
               return (
                 <span key={i} className="whitespace-pre-wrap">
-                  {seg.value}
+                  <InlineMarkdown text={seg.value} />
                 </span>
               );
             case "codeblock":

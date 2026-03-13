@@ -33,7 +33,7 @@ import { DiscoverServersModal } from "@/features/guilds/components/discover-moda
 import {
   Home, Search, Settings, Users, Plus, Compass,
   ChevronRight, PanelLeftClose, PanelLeft,
-  Bell, Command, Sparkles, Mic, Headphones,
+  Bell, Command, Sparkles, Mic, MicOff, Headphones, VolumeX,
 } from "lucide-react";
 
 export function MainLayout() {
@@ -355,27 +355,7 @@ export function MainLayout() {
                     </p>
                   </div>
                 </button>
-                <div className="flex items-center gap-0.5">
-                  <button
-                    className="flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-background-hover hover:text-text-normal transition-colors"
-                    title="Mute"
-                  >
-                    <Mic size={16} />
-                  </button>
-                  <button
-                    className="flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-background-hover hover:text-text-normal transition-colors"
-                    title="Deafen"
-                  >
-                    <Headphones size={16} />
-                  </button>
-                  <button
-                    onClick={() => openModal("userSettings")}
-                    className="flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-background-hover hover:text-text-normal transition-colors"
-                    title="Settings"
-                  >
-                    <Settings size={16} />
-                  </button>
-                </div>
+                <UserPanelButtons openModal={openModal} />
               </div>
             </div>
           </div>
@@ -466,6 +446,38 @@ function HeaderButton({
     >
       {icon}
     </button>
+  );
+}
+
+function UserPanelButtons({ openModal }: { openModal: (...args: any[]) => void }) {
+  const voiceConnection = useGuildStore((s) => s.voiceConnection);
+  const { toggleSelfMute, toggleSelfDeaf } = useGuildStore();
+  const selfMute = voiceConnection?.selfMute ?? false;
+  const selfDeaf = voiceConnection?.selfDeaf ?? false;
+
+  const btnClass = (active: boolean) => cn(
+    "flex h-8 w-8 items-center justify-center rounded transition-colors",
+    active
+      ? "text-red-400 bg-red-500/10 hover:bg-red-500/20"
+      : "text-text-muted hover:bg-background-hover hover:text-text-normal"
+  );
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <button onClick={toggleSelfMute} className={btnClass(selfMute)} title={selfMute ? "Unmute" : "Mute"}>
+        {selfMute ? <MicOff size={16} /> : <Mic size={16} />}
+      </button>
+      <button onClick={toggleSelfDeaf} className={btnClass(selfDeaf)} title={selfDeaf ? "Undeafen" : "Deafen"}>
+        {selfDeaf ? <VolumeX size={16} /> : <Headphones size={16} />}
+      </button>
+      <button
+        onClick={() => openModal("userSettings")}
+        className="flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-background-hover hover:text-text-normal transition-colors"
+        title="Settings"
+      >
+        <Settings size={16} />
+      </button>
+    </div>
   );
 }
 

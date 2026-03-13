@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Bell, BellOff, Volume2, VolumeX } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { NotificationSettings } from "@yxc/types";
 
@@ -24,7 +25,7 @@ export function NotificationSettingsUI({ guildId, channelId }: NotificationSetti
     api
       .get<NotificationSettings>(`/users/@me/notification-settings?${params}`)
       .then(setSettings)
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load notification settings"));
   }, [guildId, channelId]);
 
   const save = async (updates: Partial<NotificationSettings>) => {
@@ -37,7 +38,9 @@ export function NotificationSettingsUI({ guildId, channelId }: NotificationSetti
         channelId: channelId ?? null,
         ...next,
       });
-    } catch {} finally {
+    } catch {
+      toast.error("Failed to save notification settings");
+    } finally {
       setSaving(false);
     }
   };

@@ -1,14 +1,18 @@
-import { useState, useRef, useEffect, useCallback, Suspense, lazy } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, Suspense, lazy } from "react";
 import { PlusCircle, Smile, X, Paperclip, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { api, API_URL } from "@/lib/api";
 import { useDraftPersistence } from "@/hooks/use-draft-persistence";
+import { useGuildStore } from "@/stores/guild";
+import { cn } from "@/lib/utils";
 const LazyEmojiPicker = lazy(() => import("./emoji-picker").then(m => ({ default: m.EmojiPicker })));
 import { ReplyPreview } from "./reply-preview";
 import type { Message } from "@yxc/types";
 
 interface MessageInputProps {
   channelId: string;
+  channelName?: string;
+  guildId?: string;
   onSend: (content: string, replyTo?: string) => void;
   disabled?: boolean;
   replyingTo?: Message | null;
@@ -20,7 +24,7 @@ interface PendingFile {
   preview: string | null;
 }
 
-export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancelReply }: MessageInputProps) {
+export function MessageInput({ channelId, channelName, guildId, onSend, disabled, replyingTo, onCancelReply }: MessageInputProps) {
   const { draft, saveDraft, clearDraft } = useDraftPersistence(channelId);
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<PendingFile[]>([]);
@@ -31,9 +35,24 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [pollMultiselect, setPollMultiselect] = useState(false);
   const [pollDuration, setPollDuration] = useState("");
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastTypingRef = useRef(0);
+
+  // Get guild members for @mention autocomplete
+  const members = useGuildStore((s) => guildId ? s.members.get(guildId) ?? [] : []);
+  const filteredMembers = useMemo(() => {
+    if (mentionQuery === null) return [];
+    const q = mentionQuery.toLowerCase();
+    return members
+      .filter((m) => {
+        const name = (m.user as any)?.displayName ?? (m.user as any)?.username ?? "";
+        return name.toLowerCase().includes(q);
+      })
+      .slice(0, 8);
+  }, [members, mentionQuery]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -134,7 +153,56 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
     }
   };
 
+  const insertMention = (username: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const cursor = textarea.selectionStart;
+    const before = content.slice(0, cursor);
+    const atIndex = before.lastIndexOf("@");
+    if (atIndex === -1) return;
+    const after = content.slice(cursor);
+    const newContent = before.slice(0, atIndex) + `@${username} ` + after;
+    setContent(newContent);
+    saveDraft(newContent);
+    setMentionQuery(null);
+    setMentionIndex(0);
+    // Restore focus after React re-render
+    requestAnimationFrame(() => {
+      const pos = atIndex + username.length + 2;
+      textarea.setSelectionRange(pos, pos);
+      textarea.focus();
+    });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Handle mention autocomplete navigation
+    if (mentionQuery !== null && filteredMembers.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex((i) => (i + 1) % filteredMembers.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex((i) => (i - 1 + filteredMembers.length) % filteredMembers.length);
+        return;
+      }
+      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+        e.preventDefault();
+        const member = filteredMembers[mentionIndex];
+        if (member) {
+          const username = (member.user as any)?.username ?? "";
+          insertMention(username);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMentionQuery(null);
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -287,6 +355,43 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
         </div>
       )}
 
+      {/* @mention autocomplete */}
+      {mentionQuery !== null && filteredMembers.length > 0 && (
+        <div className="mb-1 rounded-lg border border-surface-border bg-background-secondary shadow-lg overflow-hidden">
+          <div className="px-3 py-1.5 text-[11px] font-semibold uppercase text-text-muted">
+            Members matching @{mentionQuery}
+          </div>
+          {filteredMembers.map((member, i) => {
+            const user = member.user as any;
+            const username = user?.username ?? "";
+            const displayName = user?.displayName ?? username;
+            return (
+              <button
+                key={user?.id ?? i}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  insertMention(username);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2 px-3 py-1.5 text-sm",
+                  i === mentionIndex
+                    ? "bg-brand/15 text-brand-light"
+                    : "text-text-normal hover:bg-background-hover/50"
+                )}
+              >
+                <div className="h-6 w-6 rounded-full bg-gradient-to-br from-brand to-brand-dark flex items-center justify-center text-xs font-bold text-white">
+                  {displayName[0]?.toUpperCase()}
+                </div>
+                <span className="font-medium">{displayName}</span>
+                {displayName !== username && (
+                  <span className="text-xs text-text-muted">@{username}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex items-end gap-0 rounded-lg bg-background-secondary/70">
         <input
           ref={fileInputRef}
@@ -319,12 +424,23 @@ export function MessageInput({ channelId, onSend, disabled, replyingTo, onCancel
           aria-label="Message"
           value={content}
           onChange={(e) => {
-            setContent(e.target.value);
-            saveDraft(e.target.value);
-            if (e.target.value) sendTyping();
+            const val = e.target.value;
+            setContent(val);
+            saveDraft(val);
+            if (val) sendTyping();
+            // Detect @mention typing
+            const cursor = e.target.selectionStart;
+            const before = val.slice(0, cursor);
+            const atMatch = before.match(/@(\w*)$/);
+            if (atMatch) {
+              setMentionQuery(atMatch[1]!);
+              setMentionIndex(0);
+            } else {
+              setMentionQuery(null);
+            }
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Message #channel"
+          placeholder={channelName ? `Message #${channelName}` : "Message"}
           rows={1}
           className="max-h-[300px] flex-1 resize-none bg-transparent py-3 text-sm text-text-normal placeholder-text-muted outline-none"
         />
