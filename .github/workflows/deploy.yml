@@ -50,3 +50,15 @@ jobs:
             rm -rf /tmp/zent-app-deploy
             chmod -R o+r /var/www/zent-app/
             find /var/www/zent-app -type d -exec chmod o+x {} \;
+
+      - name: Purge Cloudflare cache
+        run: |
+          ZONE_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=3aka.com" \
+            -H "X-Auth-Key: ${{ secrets.CLOUDFLARE_GLOBAL_KEY }}" \
+            -H "X-Auth-Email: ${{ secrets.CLOUDFLARE_EMAIL }}" | jq -r '.result[0].id')
+          curl -s -X POST \
+            "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
+            -H "X-Auth-Key: ${{ secrets.CLOUDFLARE_GLOBAL_KEY }}" \
+            -H "X-Auth-Email: ${{ secrets.CLOUDFLARE_EMAIL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"purge_everything":true}'
