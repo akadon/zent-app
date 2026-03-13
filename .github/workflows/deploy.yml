@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -22,9 +22,9 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_URL: https://api.3aka.com/api
-          VITE_WS_URL: wss://gw.3aka.com
-          VITE_CDN_URL: https://api.3aka.com
+          VITE_API_URL: ${{ vars.API_URL }}
+          VITE_WS_URL: ${{ vars.WS_URL }}
+          VITE_CDN_URL: ${{ vars.CDN_URL }}
 
       - name: Package for deploy
         run: |
@@ -34,32 +34,19 @@ jobs:
           cd deploy && npm install --omit=dev --no-audit --no-fund && npm install vinext --no-audit --no-fund
 
       - name: Deploy to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: 193.123.36.192
-          port: 2222
-          username: ubuntu
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "deploy/*"
-          target: "/tmp/zent-app-deploy"
-          strip_components: 1
-
-      - name: Activate deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: 193.123.36.192
-          port: 2222
-          username: ubuntu
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
+        run: |
+          ssh -o StrictHostKeyChecking=no -p 2222 ubuntu@${{ secrets.DEPLOY_HOST }} '
             rm -rf /opt/zent-app/*
-            mv /tmp/zent-app-deploy/* /opt/zent-app/
-            rm -rf /tmp/zent-app-deploy
+          '
+          scp -o StrictHostKeyChecking=no -P 2222 -r deploy/* ubuntu@${{ secrets.DEPLOY_HOST }}:/opt/zent-app/
+          ssh -o StrictHostKeyChecking=no -p 2222 ubuntu@${{ secrets.DEPLOY_HOST }} '
             sudo systemctl restart zent-app
+          '
 
       - name: Purge Cloudflare cache
+        if: vars.CF_ZONE_NAME != ''
         run: |
-          ZONE_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=3aka.com" \
+          ZONE_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=${{ vars.CF_ZONE_NAME }}" \
             -H "X-Auth-Key: ${{ secrets.CLOUDFLARE_GLOBAL_KEY }}" \
             -H "X-Auth-Email: ${{ secrets.CLOUDFLARE_EMAIL }}" | jq -r '.result[0].id')
           curl -s -X POST \
