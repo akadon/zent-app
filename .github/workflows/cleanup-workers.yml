@@ -1,27 +1,41 @@
-name: Remove Cloudflare Workers
+name: Purge Cloudflare Cache
 
 on:
   workflow_dispatch:
 
 jobs:
-  cleanup:
+  purge:
     runs-on: ubuntu-latest
     steps:
-      - name: Purge Cloudflare cache
+      - name: Purge cache
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           # Get zone ID
-          ZONE_ID=$(curl -s \
-            "https://api.cloudflare.com/client/v4/zones?name=3aka.com" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].id')
-          echo "Zone ID: $ZONE_ID"
+          ZONE_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=3aka.com" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq -r '.result[0].id')
+          echo "Zone: $ZONE_ID"
 
-          # Purge entire cache
-          echo "Purging cache..."
-          curl -s -X POST \
+          # Check token permissions
+          echo "Token permissions:"
+          curl -s "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq .
+
+          # Try purge
+          echo "Purging..."
+          RESULT=$(curl -s -X POST \
             "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Authorization: Bearer $CF_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"purge_everything":true}' | jq .
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+            -d '{"purge_everything":true}')
+          echo "$RESULT" | jq .
+
+          # If purge failed, try purging specific files
+          if echo "$RESULT" | jq -e '.success == false' > /dev/null 2>&1; then
+            echo "Full purge failed, trying specific URL purge..."
+            curl -s -X POST \
+              "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
+              -H "Authorization: Bearer $CF_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{"files":["https://3aka.com/","https://3aka.com/index.html","https://3aka.com/assets/"]}' | jq .
+          fi
