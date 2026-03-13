@@ -29,6 +29,7 @@ import { CreateThreadModal } from "@/features/channels/components/create-thread-
 import { ChannelSettingsModal } from "@/features/channels/components/channel-settings-modal";
 import { LeaveGuildModal } from "@/features/guilds/components/leave-guild-modal";
 import { DiscoverServersModal } from "@/features/guilds/components/discover-modal";
+import { NotificationBell } from "@/components/layout/notification-bell";
 
 import {
   Home, Search, Settings, Users, Plus, Compass,
@@ -48,6 +49,7 @@ export function MainLayout() {
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
+  const [showAllGuilds, setShowAllGuilds] = useState(false);
 
   // Load animation
   useEffect(() => {
@@ -185,7 +187,7 @@ export function MainLayout() {
         </button>
 
         <div className="flex items-center gap-2">
-          <HeaderButton icon={<Bell size={18} />} tooltip="Notifications" testId="notifications-button" />
+          <NotificationBell />
           <HeaderButton
             icon={<Users size={18} />}
             tooltip="Toggle Members"
@@ -246,7 +248,7 @@ export function MainLayout() {
           <div className="w-6 h-px bg-gradient-to-r from-transparent via-surface-border to-transparent mb-3" />
 
           <div className="flex flex-col gap-2 items-center">
-            {guilds.slice(0, 5).map((guild, index) => (
+            {(showAllGuilds ? guilds : guilds.slice(0, 5)).map((guild, index) => (
               <DockGuildIcon
                 key={guild.id}
                 guild={guild}
@@ -256,13 +258,17 @@ export function MainLayout() {
               />
             ))}
 
-            {guilds.length > 5 && (
-              <button className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-xl",
-                "bg-background-secondary text-text-muted text-xs font-bold",
-                "transition-all duration-300",
-                "hover:rounded-lg hover:bg-background-hover"
-              )}>
+            {guilds.length > 5 && !showAllGuilds && (
+              <button
+                onClick={() => setShowAllGuilds(true)}
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-xl",
+                  "bg-background-secondary text-text-muted text-xs font-bold",
+                  "transition-all duration-300",
+                  "hover:rounded-lg hover:bg-background-hover"
+                )}
+                title="Show all servers"
+              >
                 +{guilds.length - 5}
               </button>
             )}
