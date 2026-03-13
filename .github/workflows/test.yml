@@ -15,10 +15,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
-      - run: npm ci --ignore-scripts
-      - name: Debug deps
-        run: |
-          ls node_modules/@testing-library/ || echo "no @testing-library dir"
-          ls node_modules/@testing-library/dom/package.json || echo "no dom package"
+      - run: npm install --no-audit --no-fund --ignore-scripts
       - run: npm run test:unit
