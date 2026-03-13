@@ -2,15 +2,16 @@ import { useState } from "react";
 import { useAuthStore } from "@/stores/auth";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Fingerprint } from "lucide-react";
+import { Fingerprint, ArrowRight } from "lucide-react";
 
-type AuthMode = "login" | "register" | "mfa" | "recovery";
+type AuthMode = "login" | "register" | "mfa" | "recovery" | "guest";
 
 export function AuthPage() {
-  const [mode, setMode] = useState<AuthMode>("login");
+  const [mode, setMode] = useState<AuthMode>("guest");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [guestName, setGuestName] = useState("");
   const [loading, setLoading] = useState(false);
   const [mfaTicket, setMfaTicket] = useState("");
   const [mfaCode, setMfaCode] = useState("");
@@ -39,6 +40,8 @@ export function AuthPage() {
           recoveryKey,
         });
         setAuth(res.token, res.user);
+      } else if (mode === "guest") {
+        await guestLogin(guestName || undefined);
       }
     } catch (err: any) {
       toast.error(err.message ?? "Something went wrong");
@@ -107,23 +110,90 @@ export function AuthPage() {
     }
   };
 
-  const handleGuestLogin = async () => {
-    setLoading(true);
-    try {
-      await guestLogin();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to create guest session");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const switchMode = (newMode: AuthMode) => {
     setMode(newMode);
     setMfaCode("");
     setMfaTicket("");
     setRecoveryKey("");
   };
+
+  // Guest mode — Discord-style "pick a name" landing
+  if (mode === "guest") {
+    return (
+      <main className="flex h-screen items-center justify-center bg-background-tertiary">
+        <div className="w-full max-w-[480px] rounded-md bg-background-primary p-8 shadow-lg">
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-semibold text-header-primary">
+              Welcome to Zent
+            </h1>
+            <p className="mt-2 text-text-muted">
+              Pick a name and start chatting — no account needed
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="guest-name" className="mb-2 block text-xs font-bold uppercase text-header-secondary">
+                Display Name
+              </label>
+              <input
+                id="guest-name"
+                data-testid="guest-name-input"
+                type="text"
+                maxLength={32}
+                placeholder="What should we call you?"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                className="w-full rounded-[3px] border-none bg-background-tertiary px-3 py-2.5 text-text-normal outline-none focus:ring-2 focus:ring-brand"
+                autoFocus
+              />
+              <p className="mt-1 text-xs text-text-muted">
+                You can always change this later
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              data-testid="auth-guest-button"
+              disabled={loading}
+              className="flex w-full items-center justify-center gap-2 rounded-[3px] bg-brand py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
+            >
+              {loading ? "..." : (
+                <>
+                  Jump In
+                  <ArrowRight size={16} />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-background-hover" />
+            <span className="text-text-muted text-xs">have an account?</span>
+            <div className="flex-1 h-px bg-background-hover" />
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => switchMode("login")}
+              className="flex-1 rounded-[3px] border border-interactive-muted bg-transparent py-2 text-sm font-medium text-text-normal transition-colors hover:border-interactive-hover hover:text-interactive-hover"
+            >
+              Log In
+            </button>
+            <button
+              type="button"
+              data-testid="auth-register-link"
+              onClick={() => switchMode("register")}
+              className="flex-1 rounded-[3px] border border-interactive-muted bg-transparent py-2 text-sm font-medium text-text-normal transition-colors hover:border-interactive-hover hover:text-interactive-hover"
+            >
+              Register
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex h-screen items-center justify-center bg-background-tertiary">
@@ -291,26 +361,6 @@ export function AuthPage() {
           </button>
         )}
 
-        {/* Guest login - only on login mode */}
-        {mode === "login" && (
-          <>
-            <div className="flex items-center gap-3 my-3">
-              <div className="flex-1 h-px bg-background-hover" />
-              <span className="text-text-muted text-xs">or</span>
-              <div className="flex-1 h-px bg-background-hover" />
-            </div>
-            <button
-              type="button"
-              data-testid="auth-guest-button"
-              onClick={handleGuestLogin}
-              disabled={loading}
-              className="w-full rounded-[3px] border border-interactive-muted bg-transparent py-2.5 text-sm font-medium text-text-normal transition-colors hover:border-interactive-hover hover:text-interactive-hover disabled:opacity-50"
-            >
-              Continue as Guest
-            </button>
-          </>
-        )}
-
         <p className="mt-4 text-sm text-text-muted">
           {mode === "login" && (
             <>
@@ -322,6 +372,13 @@ export function AuthPage() {
               >
                 Register
               </button>
+              {" · "}
+              <button
+                onClick={() => switchMode("guest")}
+                className="text-text-link hover:underline"
+              >
+                Just visiting?
+              </button>
             </>
           )}
           {mode === "register" && (
@@ -332,6 +389,13 @@ export function AuthPage() {
                 className="text-text-link hover:underline"
               >
                 Log In
+              </button>
+              {" · "}
+              <button
+                onClick={() => switchMode("guest")}
+                className="text-text-link hover:underline"
+              >
+                Just visiting?
               </button>
             </>
           )}
