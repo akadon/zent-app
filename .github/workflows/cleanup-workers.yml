@@ -1,13 +1,13 @@
-name: Purge Cloudflare Cache
+name: Remove Cloudflare Pages
 
 on:
   workflow_dispatch:
 
 jobs:
-  purge:
+  cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Check CF bindings and purge
+      - name: Remove 3aka.com from CF Pages and purge cache
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -16,22 +16,29 @@ jobs:
             -H "Authorization: Bearer $CF_TOKEN" | jq -r '.result[0].id')
           echo "Zone: $ZONE_ID"
 
-          # Check for Workers scripts
-          echo "=== Workers scripts ==="
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/scripts" \
-            -H "Authorization: Bearer $CF_TOKEN" | jq '.result[] | {id, created_on}'
+          # Remove custom domain 3aka.com from Pages project
+          echo "=== Removing 3aka.com from Pages project ==="
+          curl -s -X DELETE \
+            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects/zent-app/domains/3aka.com" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq .
 
-          # Check for Pages projects
-          echo "=== Pages projects ==="
+          # Delete the Pages project entirely
+          echo "=== Deleting Pages project zent-app ==="
+          curl -s -X DELETE \
+            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects/zent-app" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq .
+
+          # Verify it's gone
+          echo "=== Remaining Pages projects ==="
           curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects" \
-            -H "Authorization: Bearer $CF_TOKEN" | jq '.result[] | {name, subdomain, domains}'
+            -H "Authorization: Bearer $CF_TOKEN" | jq '.result[] | {name, domains}'
 
-          # Check Workers domains (custom domains)
-          echo "=== Workers custom domains ==="
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/domains" \
-            -H "Authorization: Bearer $CF_TOKEN" | jq .
+          # Try cache purge
+          echo "=== Purging cache ==="
+          curl -s -X POST \
+            "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"purge_everything":true}' | jq .
 
-          # Try to list token permissions
-          echo "=== Token verify ==="
-          curl -s "https://api.cloudflare.com/client/v4/user/tokens/verify" \
-            -H "Authorization: Bearer $CF_TOKEN" | jq .
+          echo "Done!"
