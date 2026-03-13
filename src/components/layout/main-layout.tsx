@@ -33,7 +33,7 @@ import { DiscoverServersModal } from "@/features/guilds/components/discover-moda
 import {
   Home, Search, Settings, Users, Plus, Compass,
   ChevronRight, PanelLeftClose, PanelLeft,
-  Bell, Command, Sparkles,
+  Bell, Command, Sparkles, Mic, Headphones,
 } from "lucide-react";
 
 export function MainLayout() {
@@ -212,7 +212,7 @@ export function MainLayout() {
             <div className="avatar avatar-sm">
               {user?.username?.[0]?.toUpperCase()}
             </div>
-            <span className="text-sm font-medium text-text-normal hidden xl:block">
+            <span className="text-sm font-medium text-text-normal hidden sm:block">
               {user?.displayName ?? user?.username}
             </span>
           </button>
@@ -315,20 +315,69 @@ export function MainLayout() {
           )}
           style={{ animationDelay: "50ms" }}
           >
-            {isHome ? (
-              <HomeSidebar
-                onSelectFriends={() => { setDmChannelId(null); setShowFriends(true); }}
-                onSelectDM={(id) => { setDmChannelId(id); setShowFriends(false); }}
-                selectedDmId={dmChannelId}
-                showingFriends={showFriends}
-              />
-            ) : selectedGuild ? (
-              <ChannelPanel
-                guild={selectedGuild}
-                selectedChannelId={selectedChannelId}
-                onSelectChannel={selectChannel}
-              />
-            ) : null}
+            <div className="flex flex-col h-full">
+              <div className="flex-1 overflow-y-auto">
+                {isHome ? (
+                  <HomeSidebar
+                    onSelectFriends={() => { setDmChannelId(null); setShowFriends(true); }}
+                    onSelectDM={(id) => { setDmChannelId(id); setShowFriends(false); }}
+                    selectedDmId={dmChannelId}
+                    showingFriends={showFriends}
+                  />
+                ) : selectedGuild ? (
+                  <ChannelPanel
+                    guild={selectedGuild}
+                    selectedChannelId={selectedChannelId}
+                    onSelectChannel={selectChannel}
+                  />
+                ) : null}
+              </div>
+
+              {/* User Panel */}
+              <div className={cn(
+                "flex items-center gap-2 px-2 py-2",
+                "bg-background-tertiary/80",
+                "border-t border-surface-border/30"
+              )}>
+                <button
+                  onClick={() => openModal("userSettings")}
+                  className="flex items-center gap-2 min-w-0 flex-1 px-1 py-1 rounded hover:bg-background-hover transition-colors"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-white">
+                    {user?.username?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text-normal truncate">
+                      {user?.displayName ?? user?.username}
+                    </p>
+                    <p className="text-[10px] text-text-muted truncate">
+                      {user?.isGuest ? "Guest" : "Online"}
+                    </p>
+                  </div>
+                </button>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    className="flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-background-hover hover:text-text-normal transition-colors"
+                    title="Mute"
+                  >
+                    <Mic size={16} />
+                  </button>
+                  <button
+                    className="flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-background-hover hover:text-text-normal transition-colors"
+                    title="Deafen"
+                  >
+                    <Headphones size={16} />
+                  </button>
+                  <button
+                    onClick={() => openModal("userSettings")}
+                    className="flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-background-hover hover:text-text-normal transition-colors"
+                    title="Settings"
+                  >
+                    <Settings size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
