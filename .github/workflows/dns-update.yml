@@ -1,0 +1,67 @@
+name: Update Cloudflare DNS
+
+on:
+  workflow_dispatch:
+    inputs:
+      record_name:
+        description: 'DNS record name (e.g. gw.3aka.com)'
+        required: true
+      record_content:
+        description: 'IP address to point to'
+        required: true
+      record_type:
+        description: 'DNS record type'
+        required: false
+        default: 'A'
+      proxied:
+        description: 'Cloudflare proxy enabled'
+        required: false
+        default: 'true'
+
+jobs:
+  update-dns:
+    runs-on: self-hosted
+    timeout-minutes: 2
+    steps:
+      - name: Get Zone ID
+        id: zone
+        run: |
+          ZONE_ID=$(curl -sf "https://api.cloudflare.com/client/v4/zones?name=${{ vars.CF_ZONE_NAME }}" \
+            -H "X-Auth-Key: ${{ secrets.CLOUDFLARE_GLOBAL_KEY }}" \
+            -H "X-Auth-Email: ${{ secrets.CLOUDFLARE_EMAIL }}" | jq -r '.result[0].id')
+          echo "zone_id=$ZONE_ID" >> "$GITHUB_OUTPUT"
+          echo "Zone ID: $ZONE_ID"
+
+      - name: Find existing record
+        id: record
+        run: |
+          RECORD=$(curl -sf "https://api.cloudflare.com/client/v4/zones/${{ steps.zone.outputs.zone_id }}/dns_records?name=${{ inputs.record_name }}&type=${{ inputs.record_type }}" \
+            -H "X-Auth-Key: ${{ secrets.CLOUDFLARE_GLOBAL_KEY }}" \
+            -H "X-Auth-Email: ${{ secrets.CLOUDFLARE_EMAIL }}")
+          RECORD_ID=$(echo "$RECORD" | jq -r '.result[0].id')
+          OLD_IP=$(echo "$RECORD" | jq -r '.result[0].content')
+          echo "record_id=$RECORD_ID" >> "$GITHUB_OUTPUT"
+          echo "Current: ${{ inputs.record_name }} -> $OLD_IP"
+          echo "New:     ${{ inputs.record_name }} -> ${{ inputs.record_content }}"
+
+      - name: Update DNS record
+        run: |
+          RESULT=$(curl -sf -X PUT \
+            "https://api.cloudflare.com/client/v4/zones/${{ steps.zone.outputs.zone_id }}/dns_records/${{ steps.record.outputs.record_id }}" \
+            -H "X-Auth-Key: ${{ secrets.CLOUDFLARE_GLOBAL_KEY }}" \
+            -H "X-Auth-Email: ${{ secrets.CLOUDFLARE_EMAIL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "type": "${{ inputs.record_type }}",
+              "name": "${{ inputs.record_name }}",
+              "content": "${{ inputs.record_content }}",
+              "proxied": ${{ inputs.proxied }},
+              "ttl": 1
+            }')
+          SUCCESS=$(echo "$RESULT" | jq -r '.success')
+          if [ "$SUCCESS" = "true" ]; then
+            echo "DNS updated: ${{ inputs.record_name }} -> ${{ inputs.record_content }}"
+          else
+            echo "Failed: $RESULT"
+            exit 1
+          fi
